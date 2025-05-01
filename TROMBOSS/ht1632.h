@@ -79,7 +79,7 @@ void OutputCLK_Pulse(void);
 void OutputA_74164(unsigned char x);
 void ChipSelect(int select);
 void ht1632_writebits (byte bits, byte firstbit);
-static void ht1632_sendcmd (byte chipNo, byte command);
+void ht1632_sendcmd (byte chipNo, byte command);
 static void ht1632_senddata (byte chipNo, byte address, byte data);
 void ht1632_setup();
 void ht1632_plot (byte x, byte y, byte color);
