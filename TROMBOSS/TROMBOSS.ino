@@ -1,7 +1,7 @@
 #include <Wire.h>
 #include "ht1632.h"
 #include "song_patterns.h"
-
+//je suius michel
 // Définition du pin du potentiomètre
 const int potPin = A0;
 
