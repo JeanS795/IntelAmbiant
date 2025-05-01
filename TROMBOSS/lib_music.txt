@@ -1,0 +1,38 @@
+MusicNote intro[] = {
+    {NOTE_C4, 4}, {NOTE_D4, 4}, {NOTE_E4, 4}, {NOTE_F4, 4},
+    {NOTE_G4, 4}, {NOTE_A4, 4}, {NOTE_B4, 4}, {NOTE_C5, 4},
+    {NOTE_D5, 4}, {NOTE_E5, 4}, {NOTE_F5, 4}, {NOTE_G5, 4},
+    {NOTE_A5, 4}, {NOTE_B5, 4}, {NOTE_C6, 4}, {NOTE_D6, 4},
+    {NOTE_E6, 4}, {NOTE_F6, 4}
+};
+
+MusicNote verse[] = {
+    {NOTE_C4, 8}, {NOTE_D4, 8}, {NOTE_E4, 8}, {NOTE_F4, 8},
+    {NOTE_G4, 8}, {NOTE_A4, 8}, {NOTE_B4, 8}, {NOTE_C5, 8},
+    {NOTE_D5, 8}, {NOTE_E5, 8}, {NOTE_F5, 8}, {NOTE_G5, 8},
+    {NOTE_A5, 8}, {NOTE_B5, 8}, {NOTE_C6, 8}, {NOTE_D6, 8},
+    {NOTE_E6, 8}, {NOTE_F6, 8}, {NOTE_G6, 8}, {NOTE_A6, 8},
+    {NOTE_B6, 8}, {NOTE_C7, 8}, {NOTE_D7, 8}, {NOTE_E7, 8},
+    {NOTE_F7, 8}, {NOTE_G7, 8}, {NOTE_A7, 8}, {NOTE_B7, 8},
+    {NOTE_C8, 8}, {NOTE_D8, 8}, {NOTE_E8, 8}, {NOTE_F8, 8},
+    {NOTE_G8, 8}, {NOTE_A8, 8}, {NOTE_B8, 8}, {NOTE_C9, 8},
+    {NOTE_D9, 8}, {NOTE_E9, 8}, {NOTE_F9, 8}, {NOTE_G9, 8},
+    {NOTE_A9, 8}, {NOTE_B9, 8}
+};
+
+MusicNote chorus[] = {
+    {NOTE_C4, 16}, {NOTE_D4, 16}, {NOTE_E4, 16}, {NOTE_F4, 16},
+    {NOTE_G4, 16}, {NOTE_A4, 16}, {NOTE_B4, 16}, {NOTE_C5, 16},
+    {NOTE_D5, 16}, {NOTE_E5, 16}, {NOTE_F5, 16}, {NOTE_G5, 16},
+    {NOTE_A5, 16}, {NOTE_B5, 16}, {NOTE_C6, 16}, {NOTE_D6, 16},
+    {NOTE_E6, 16}, {NOTE_F6, 16}, {NOTE_G6, 16}, {NOTE_A6, 16},
+    {NOTE_B6, 16}, {NOTE_C7, 16}, {NOTE_D7, 16}, {NOTE_E7, 16},
+    {NOTE_F7, 16}, {NOTE_G7, 16}, {NOTE_A7, 16}, {NOTE_B7, 16}
+};
+
+MusicNote hookPart[] = {
+    {NOTE_C4, 2}, {NOTE_D4, 2}, {NOTE_E4, 2}, {NOTE_F4, 2},
+    {NOTE_G4, 2}, {NOTE_A4, 2}, {NOTE_B4, 2}, {NOTE_C5, 2},
+    {NOTE_D5, 2}, {NOTE_E5, 2}, {NOTE_F5, 2}, {NOTE_G5, 2},
+    {NOTE_A5, 2}, {NOTE_B5, 2}, {NOTE_C6, 2}, {NOTE_D6, 2}
+};

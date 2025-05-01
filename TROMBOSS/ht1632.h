@@ -3,8 +3,6 @@
  * defintions for Holtek ht1632 LED driver.
  */
 
-#ifndef HT1632_H
-#define HT1632_H
 
 #if !defined(DEBUGPRINT)
 #define DEBUGPRINT(fmt, args...)
@@ -61,7 +59,7 @@
 // indexes from 32 to 63 are allocated for red plane;
 // when a bit is 1 in both planes, it is displayed as orange (green + red);
 extern byte ht1632_shadowram[64][4];
-extern const unsigned char Tab7Segts[];
+extern unsigned char Tab7Segts[];
 
 
 /*
@@ -87,6 +85,4 @@ void ht1632_setup();
 void ht1632_plot (byte x, byte y, byte color);
 void ht1632_clear();
 void setup7Seg(void);
-
-#endif
 
