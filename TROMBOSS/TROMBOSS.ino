@@ -11,7 +11,7 @@ const int potPin = A0;
 #define BLOCK_HEIGHT 2
 #define MAX_BLOCKS 12
 
-// Structure pour stocker les informations d'un bloc (optimisée)
+// Structure pour stocker les informations d'un bloc 
 typedef struct {
   int16_t x;              // Position horizontale, changé en int16_t pour éviter les dépassements
   uint8_t y;              // Position verticale (0 à 255), changé de int8_t à uint8_t
@@ -35,23 +35,30 @@ unsigned long lastNoteTime = 0;
 uint16_t currentNoteDelay = 0;
 uint8_t blockPriorityCounter = 0;
 
-// Débogage
+// Débogage 1 = oui, 0 = non
 #define DEBUG_SERIAL 1
 
 // Fonction pour déterminer la position Y en fonction de la fréquence
 uint8_t getPositionYFromFrequency(uint16_t frequency) {
   uint8_t position = 0;
   
-  // Nouvelle échelle de positions pour une meilleure visibilité
-  // Seulement 4 positions distinctes pour plus de clarté
-  if (frequency >= 261 && frequency <= 493)      // Octave 4
+  // Échelle de positions sur 8 niveaux pour une meilleure répartition
+  if (frequency >= 261 && frequency <= 349)      // C4-F4
     position = 0;
-  else if (frequency >= 523 && frequency <= 987) // Octave 5
+  else if (frequency >= 350 && frequency <= 493) // F#4-B4
+    position = 2;
+  else if (frequency >= 494 && frequency <= 698) // C5-F5
     position = 4;
-  else if (frequency >= 1046 && frequency <= 3951) // Octaves 6-7
+  else if (frequency >= 699 && frequency <= 987) // F#5-B5
+    position = 6;
+  else if (frequency >= 988 && frequency <= 1396) // C6-F6
     position = 8;
-  else // Octaves 8-9 et au-delà
+  else if (frequency >= 1397 && frequency <= 1975) // F#6-B6
+    position = 10;
+  else if (frequency >= 1976 && frequency <= 2793) // C7-F7
     position = 12;
+  else // F#7 et au-delà
+    position = 14;
   
 #if DEBUG_SERIAL
   Serial.print("Frequence: ");
@@ -82,7 +89,7 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
   // Calcul de la longueur en fonction de la durée
   // Augmenter la longueur des blocs pour qu'ils restent visibles plus longtemps
   uint8_t length = note.duration; // Doublé (était note.duration / 2)
-  if (length < 2) length = 2;     // Longueur minimale de 2 (était 1)
+  if (length < 2) length = 1;     // Longueur minimale de 1
   
   // Position verticale en fonction de la fréquence
   uint8_t posY = getPositionYFromFrequency(note.frequency);
@@ -95,7 +102,7 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
   // Position horizontale toujours à droite de l'écran
   int16_t startX = MATRIX_WIDTH;  // Modifié en int16_t
   
-  // Vérification des superpositions (simplifiée)
+  // Vérification des superpositions 
   bool positionOccupied = false;
   do {
     positionOccupied = false;
@@ -116,13 +123,13 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
     blocks[blockIndex].x = startX;
     blocks[blockIndex].y = posY;
     blocks[blockIndex].length = length;
-    blocks[blockIndex].color = RED; // Changé à rouge pour meilleure visibilité
+    blocks[blockIndex].color = RED; 
     blocks[blockIndex].active = 1;
     
     blockPriorityCounter = (blockPriorityCounter + 1) & 0x1F;
     blocks[blockIndex].priority = blockPriorityCounter;
     
-#if DEBUG_SERIAL
+#if DEBUG_SERIAL //suivi des blocs créés
     Serial.print("Nouveau bloc: x=");
     Serial.print(startX);
     Serial.print(", y=");
@@ -136,9 +143,9 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
   }
   
   // Délai entre les notes considérablement augmenté pour donner plus de temps
-  uint8_t beatsPerMinute = 40;  // Tempo réduit à 40 BPM (était 80)
+  uint8_t beatsPerMinute = 80;  
   uint16_t beatDuration = 60000 / beatsPerMinute;
-  currentNoteDelay = beatDuration * 4 / note.duration + 500;  // 500ms de délai supplémentaire
+  currentNoteDelay = beatDuration * 4 / note.duration + 150;  // 500ms de délai supplémentaire
   
   lastNoteTime = millis();
 }
@@ -147,7 +154,7 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
 void drawBlock(Block block) {
   if (!block.active) return;
   
-  // Utiliser des variables locales pour améliorer les performances
+  // variables locales = meilleurs perfs
   int16_t xStart = block.x;
   int16_t xEnd = xStart + block.length;
   uint8_t yStart = block.y;
@@ -323,7 +330,7 @@ void loop() {
   // Vérifier s'il est temps de créer une nouvelle note
   if (!songFinished && currentTime - lastNoteTime >= currentNoteDelay) {
     // Éviter les créations multiples en ajoutant une période de "refroidissement"
-    if (currentTime - lastNoteCreationTime >= 1000) {  // Attendre au moins 1 seconde entre les créations
+    if (currentTime - lastNoteCreationTime >= 800) {  // Attendre au moins 1 seconde entre les créations
       lastNoteCreationTime = currentTime;
       noteCreationInProgress = true;
       
