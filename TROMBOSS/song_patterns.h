@@ -7,6 +7,7 @@
 #define SONG_PATTERNS_H
 
 #include "notes_frequencies.h"
+#include "tempo.h" // Ajouté pour que chaque pattern puisse définir son tempo
 #include <avr/pgmspace.h>
 
 // Structure pour stocker une note et sa durée - optimisée

@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include "ht1632.h"
 #include "song_patterns.h"
+
 //je suius michel
 // Définition du pin du potentiomètre
 const int potPin = A0;
@@ -40,7 +41,7 @@ unsigned long lastNoteTime = 0;
 bool lastNoteStillActive = false;  // Pour vérifier si la dernière note est encore active
 
 // Variables de timing - RALENTISSEMENT SIGNIFICATIF
-const uint16_t moveDelay = 300;     // Délai de mouvement (300 ms)
+// const uint16_t moveDelay = 100; // SUPPRIMÉ, remplacé par moveDelay dynamique
 unsigned long lastMoveTime = 0;
 uint16_t currentNoteDelay = 0;
 uint8_t blockPriorityCounter = 0;
@@ -308,7 +309,7 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
   // Délai entre les notes considérablement augmenté pour donner plus de temps
   uint8_t beatsPerMinute = 140;  
   uint16_t beatDuration = 60000 / beatsPerMinute;
-  currentNoteDelay = beatDuration * 4 / note.duration ;  // 500ms de délai supplémentaire
+  currentNoteDelay = beatDuration * 4 / note.duration ;  
   
   lastNoteTime = millis();
 }
@@ -484,6 +485,13 @@ void drawBlockHead(const Block& block) {
 void periodicMoveBlocks() {
   static unsigned long lastMoveTime = 0;
   unsigned long currentTime = millis();
+
+  // Calcul dynamique du délai de déplacement en fonction du tempo
+  // 1 temps = 1 noire = 60000 / TEMPO_BPM ms
+  // Pour un effet plus fluide, on peut choisir 1 déplacement par croche (diviser par 2)
+  uint16_t moveDelay = 60000 / TEMPO_BPM; // 1 déplacement par temps (noire)
+  // uint16_t moveDelay = 60000 / TEMPO_BPM / 2; // 1 déplacement par croche (optionnel)
+
   if (currentTime - lastMoveTime > moveDelay) {
     // Recherche du bloc prioritaire (le plus à gauche) qui occupe x=2 ou x=3
     int8_t blockToPlay = -1;
