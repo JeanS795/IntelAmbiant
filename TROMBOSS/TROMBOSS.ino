@@ -11,7 +11,7 @@ const int potPin = A0;
 #define BLOCK_HEIGHT 2
 #define MAX_BLOCKS 12
 
-#define MUSIQUE 0
+#define MUSIQUE 1
 #define BUZZER_PIN 3
 
 // Structure pour stocker les informations d'un bloc 
@@ -22,6 +22,7 @@ typedef struct {
   uint8_t color : 3;      // Couleur du bloc sur 2 bits (0-3)
   uint8_t active : 1;     // Flag actif sur 1 bit
   uint8_t priority : 5;   // Priorité sur 5 bits (0-31)
+  uint16_t frequency;     // Fréquence de la note associée
 } Block;
 
 // Définition des couleurs
@@ -51,6 +52,9 @@ uint8_t cursorY_displayed = 0;
 
 // Débogage 1 = oui, 0 = non
 #define DEBUG_SERIAL 1
+
+// Pour suivre si la note du bloc est en cours de lecture
+bool blockNotePlaying[MAX_BLOCKS] = {0};
 
 // Fonction pour déterminer la position Y en fonction de la fréquence
 uint8_t getPositionYFromFrequency(uint16_t frequency) {
@@ -278,6 +282,8 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
     blocks[blockIndex].length = length;
     blocks[blockIndex].color = BLOCK_COLOR;  // Utilisation de la couleur définie
     blocks[blockIndex].active = 1;
+    blocks[blockIndex].frequency = note.frequency; // <--- AJOUT
+    blockNotePlaying[blockIndex] = false; // <--- AJOUT
     
     blockPriorityCounter = (blockPriorityCounter + 1) & 0x1F;
     blocks[blockIndex].priority = blockPriorityCounter;
@@ -398,7 +404,7 @@ void nextNote() {
 // Fonction périodique pour lire le potentiomètre et calculer la position cible du curseur
 void updateCursorFromPot() {
   potValue = analogRead(potPin);
-  int y = map(potValue, 0, 1023, 0, MATRIX_HEIGHT - 2);
+  int y = map(potValue, 0, 1024, 0, MATRIX_HEIGHT - 1);
   if (y < 0) y = 0;
   if (y > MATRIX_HEIGHT - 2) y = MATRIX_HEIGHT - 2;
   cursorY = (uint8_t)y;
@@ -479,17 +485,57 @@ void periodicMoveBlocks() {
   static unsigned long lastMoveTime = 0;
   unsigned long currentTime = millis();
   if (currentTime - lastMoveTime > moveDelay) {
+    // Recherche du bloc prioritaire (le plus à gauche) qui occupe x=2 ou x=3
+    int8_t blockToPlay = -1;
+    int16_t minX = 1000;
     for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
       if (blocks[i].active) {
-        // Efface la queue du bloc à l'ancienne position
+        int16_t xStart = blocks[i].x;
+        int16_t xEnd = xStart + blocks[i].length;
+        // Le bloc occupe-t-il x=2 ou x=3 ?
+        if ((2 >= xStart && 2 < xEnd) || (3 >= xStart && 3 < xEnd)) {
+          if (xStart < minX) {
+            minX = xStart;
+            blockToPlay = i;
+          }
+        }
+      }
+    }
+    // Gestion du buzzer : jouer la note du bloc prioritaire, arrêter sinon
+    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+      if (blocks[i].active) {
+        int16_t xStart = blocks[i].x;
+        int16_t xEnd = xStart + blocks[i].length;
+        bool onGreen = (2 >= xStart && 2 < xEnd) || (3 >= xStart && 3 < xEnd);
+        if (onGreen && i == blockToPlay) {
+          if (!blockNotePlaying[i] && blocks[i].frequency > 0) {
+#if MUSIQUE
+            tone(BUZZER_PIN, blocks[i].frequency);
+#endif
+            blockNotePlaying[i] = true;
+          }
+        } else {
+          if (blockNotePlaying[i]) {
+#if MUSIQUE
+            noTone(BUZZER_PIN);
+#endif
+            blockNotePlaying[i] = false;
+          }
+        }
+      } else {
+        blockNotePlaying[i] = false;
+      }
+    }
+
+    // Déplacement des blocs
+    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+      if (blocks[i].active) {
         eraseBlockTail(blocks[i]);
-        // Déplace le bloc
         blocks[i].x--;
-        // Affiche la tête du bloc à la nouvelle position
         drawBlockHead(blocks[i]);
-        // Désactive le bloc s'il est complètement sorti de l'écran
         if (blocks[i].x + blocks[i].length < 0) {
           blocks[i].active = 0;
+          blockNotePlaying[i] = false;
         }
       }
     }
@@ -501,9 +547,6 @@ void periodicMoveBlocks() {
 void periodicNotesAndMusic() {
   static unsigned long lastNoteCreationTime = 0;
   static bool noteCreationInProgress = false;
-  static uint16_t lastPlayedFrequency = 0;
-  static unsigned long noteStartTime = 0;
-  static uint16_t noteDurationMs = 0;
   unsigned long currentTime = millis();
 
   // Création des notes/blocs
@@ -516,40 +559,8 @@ void periodicNotesAndMusic() {
     }
   }
 
-#if MUSIQUE
-  // Lecture de la note courante sur le buzzer
-  if (!songFinished) {
-    const MusicNote* currentSong;
-    uint8_t currentSongSize;
-    switch (currentSongPart) {
-      case 0: currentSong = intro; currentSongSize = INTRO_SIZE; break;
-      case 1: currentSong = verse; currentSongSize = VERSE_SIZE; break;
-      case 2: currentSong = chorus; currentSongSize = CHORUS_SIZE; break;
-      case 3: currentSong = hookPart; currentSongSize = HOOK_SIZE; break;
-      default: currentSong = intro; currentSongSize = INTRO_SIZE; break;
-    }
-    if (songPosition > 0 && songPosition <= currentSongSize) {
-      MusicNote note;
-      getNote(currentSong, songPosition - 1, &note);
-      if (note.frequency != lastPlayedFrequency || (millis() - noteStartTime > noteDurationMs)) {
-        if (note.frequency > 0) {
-          noteDurationMs = 60000 / 140 * 4 / note.duration;
-          tone(BUZZER_PIN, note.frequency, noteDurationMs);
-          noteStartTime = millis();
-        } else {
-          noTone(BUZZER_PIN);
-        }
-        lastPlayedFrequency = note.frequency;
-      }
-    } else {
-      noTone(BUZZER_PIN);
-      lastPlayedFrequency = 0;
-    }
-  } else {
-    noTone(BUZZER_PIN);
-    lastPlayedFrequency = 0;
-  }
-#endif
+  // Suppression de la gestion automatique du buzzer ici
+  // ...rien ici...
 }
 
 // Affiche les colonnes 2 et 3 en vert (statique, hors zone curseur et hors zone bloc)
