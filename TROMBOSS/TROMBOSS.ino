@@ -58,7 +58,7 @@ uint8_t getPositionYFromFrequency(uint16_t frequency) {
   Serial.print(frequency);
   Serial.print(" -> Position Y: ");
   Serial.println(position);
-#endif
+#endifds
 
   return position;
 }
@@ -281,6 +281,13 @@ void nextNote() {
   }
 }
 
+// Ajout d'une ligne verte à gauche de l'écran pour valider les notes
+void drawValidationLine() {
+  for (uint8_t y = 0; y < MATRIX_HEIGHT; y++) {
+    ht1632_plot(0, y, GREEN); // Dessine une ligne verte sur la première colonne
+  }
+}
+
 void setup() {
   // Réactiver Serial pour le débogage
 #if DEBUG_SERIAL
@@ -315,6 +322,9 @@ void loop() {
   
   // Effacer la matrice
   ht1632_clear();
+  
+  // Dessiner la ligne de validation
+  drawValidationLine();
   
   // Variables pour éviter les créations multiples de notes
   static unsigned long lastNoteCreationTime = 0;
