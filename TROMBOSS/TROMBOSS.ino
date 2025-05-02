@@ -1,297 +1,207 @@
 #include <Wire.h>
 #include "ht1632.h"
 #include "song_patterns.h"
-//je suius michel
+#include "fr_jacques_music.h"
+
 // Définition du pin du potentiomètre
 const int potPin = A0;
 
 // Constantes pour la matrice LED
 #define MATRIX_WIDTH 32
 #define MATRIX_HEIGHT 16
-#define BLOCK_HEIGHT 2
-#define MAX_BLOCKS 12
+#define NUM_COLUMNS 4
+#define TILE_SPEED 1 // Vitesse de déplacement des tuiles
+#define TILE_HEIGHT 2
+#define TILE_WIDTH 2 // Largeur des tuiles
+#define TILE_SPAWN_INTERVAL 500 // Intervalle de création des tuiles en ms
 
-// Structure pour stocker les informations d'un bloc 
-typedef struct {
-  int16_t x;              // Position horizontale, changé en int16_t pour éviter les dépassements
-  uint8_t y;              // Position verticale (0 à 255), changé de int8_t à uint8_t
-  uint8_t length;         // Longueur du bloc (0 à 255)
-  uint8_t color : 2;      // Couleur du bloc sur 2 bits (0-3)
-  uint8_t active : 1;     // Flag actif sur 1 bit
-  uint8_t priority : 5;   // Priorité sur 5 bits (0-31)
-} Block;
+// Structure pour les tuiles
+struct Tile {
+  int x; // Position horizontale
+  int y; // Position verticale (ligne)
+  bool active; // Indique si la tuile est active
+};
 
-// Variables pour le contrôle des blocs
-Block blocks[MAX_BLOCKS];
-uint8_t nextBlockIndex = 0;
-uint8_t songPosition = 0;
-uint8_t currentSongPart = 0;
-uint8_t songFinished = 0;
-
-// Variables de timing - RALENTISSEMENT SIGNIFICATIF
-const uint16_t moveDelay = 800;     // Augmenté à 800ms (était 350ms)
-unsigned long lastMoveTime = 0;
-unsigned long lastNoteTime = 0;
-uint16_t currentNoteDelay = 0;
-uint8_t blockPriorityCounter = 0;
+Tile tiles[NUM_COLUMNS];
+unsigned long lastTileSpawnTime = 0;
+unsigned long lastUpdateTime = 0;
+int score = 0;
 
 // Débogage 1 = oui, 0 = non
 #define DEBUG_SERIAL 1
 
-// Fonction pour déterminer la position Y en fonction de la fréquence
-uint8_t getPositionYFromFrequency(uint16_t frequency) {
-  uint8_t position = 0;
-  
-  // Échelle de positions sur 8 niveaux pour une meilleure répartition
-  if (frequency >= 261 && frequency <= 349)      // C4-F4
-    position = 0;
-  else if (frequency >= 350 && frequency <= 493) // F#4-B4
-    position = 2;
-  else if (frequency >= 494 && frequency <= 698) // C5-F5
-    position = 4;
-  else if (frequency >= 699 && frequency <= 987) // F#5-B5
-    position = 6;
-  else if (frequency >= 988 && frequency <= 1396) // C6-F6
-    position = 8;
-  else if (frequency >= 1397 && frequency <= 1975) // F#6-B6
-    position = 10;
-  else if (frequency >= 1976 && frequency <= 2793) // C7-F7
-    position = 12;
-  else // F#7 et au-delà
-    position = 14;
-  
-#if DEBUG_SERIAL
-  Serial.print("Frequence: ");
-  Serial.print(frequency);
-  Serial.print(" -> Position Y: ");
-  Serial.println(position);
-#endifds
+// Synchronisation des tuiles avec la musique
+#include "song_patterns.h"
 
-  return position;
-}
+// Variables pour suivre la progression de la musique
+uint8_t currentNoteIndex = 0;
+unsigned long lastNoteTime = 0;
 
-// Fonction pour créer un nouveau bloc en fonction d'une note
-void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
-  // Récupérer les valeurs de la note depuis PROGMEM
-  MusicNote note;
-  getNote(noteArray, noteIndex, &note);
-  
-  // Trouver un emplacement libre ou réutiliser un bloc
-  uint8_t blockIndex = nextBlockIndex;
-  for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-    if (!blocks[i].active) {
-      blockIndex = i;
-      break;
-    }
-  }
-  nextBlockIndex = (nextBlockIndex + 1) % MAX_BLOCKS;
-  
-  // Calcul de la longueur en fonction de la durée
-  // Augmenter la longueur des blocs pour qu'ils restent visibles plus longtemps
-  uint8_t length = note.duration; // Doublé (était note.duration / 2)
-  if (length < 2) length = 1;     // Longueur minimale de 1
-  
-  // Position verticale en fonction de la fréquence
-  uint8_t posY = getPositionYFromFrequency(note.frequency);
-  
-  // S'assurer que le bloc ne dépasse pas les limites de la matrice
-  if (posY + BLOCK_HEIGHT > MATRIX_HEIGHT) {
-    posY = MATRIX_HEIGHT - BLOCK_HEIGHT;
-  }
-  
-  // Position horizontale toujours à droite de l'écran
-  int16_t startX = MATRIX_WIDTH;  // Modifié en int16_t
-  
-  // Vérification des superpositions 
-  bool positionOccupied = false;
-  do {
-    positionOccupied = false;
-    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-      if (blocks[i].active && i != blockIndex) {
-        if ((startX <= blocks[i].x + blocks[i].length) && 
-            (startX + length >= blocks[i].x)) {
-          positionOccupied = true;
-          startX = blocks[i].x - length - 1;
-          break;
-        }
-      }
-    }
-  } while (positionOccupied && startX >= MATRIX_WIDTH/2);
-  
-  // Création du bloc si l'espace est disponible
-  if (startX >= MATRIX_WIDTH/2) {
-    blocks[blockIndex].x = startX;
-    blocks[blockIndex].y = posY;
-    blocks[blockIndex].length = length;
-    blocks[blockIndex].color = RED; 
-    blocks[blockIndex].active = 1;
-    
-    blockPriorityCounter = (blockPriorityCounter + 1) & 0x1F;
-    blocks[blockIndex].priority = blockPriorityCounter;
-    
-#if DEBUG_SERIAL //suivi des blocs créés
-    Serial.print("Nouveau bloc: x=");
-    Serial.print(startX);
-    Serial.print(", y=");
-    Serial.print(posY);
-    Serial.print(", len=");
-    Serial.println(length);
-#endif
-  }
-  else {
-    blocks[blockIndex].active = 0;
-  }
-  
-  // Délai entre les notes considérablement augmenté pour donner plus de temps
-  uint8_t beatsPerMinute = 80;  
-  uint16_t beatDuration = 60000 / beatsPerMinute;
-  currentNoteDelay = beatDuration * 4 / note.duration + 150;  // 500ms de délai supplémentaire
-  
-  lastNoteTime = millis();
-}
+// Ajout de la lecture de la musique via le buzzer pendant que le joueur déplace le slider
+#include "song_patterns.h"
 
-// Fonction pour dessiner un bloc sur la matrice
-void drawBlock(Block block) {
-  if (!block.active) return;
-  
-  // variables locales = meilleurs perfs
-  int16_t xStart = block.x;
-  int16_t xEnd = xStart + block.length;
-  uint8_t yStart = block.y;
-  uint8_t yEnd = yStart + BLOCK_HEIGHT;
-  
-  // Vérifier si le bloc est au moins partiellement visible
-  if (xEnd <= 0 || xStart >= MATRIX_WIDTH || yEnd <= 0 || yStart >= MATRIX_HEIGHT) {
-#if DEBUG_SERIAL
-    static uint8_t invisibleCounter = 0;
-    if (invisibleCounter % 50 == 0) {
-      Serial.print("Bloc invisible: x=");
-      Serial.print(xStart);
-      Serial.print("->"); 
-      Serial.print(xEnd-1);
-      Serial.print(", y=");
-      Serial.print(yStart);
-      Serial.print("->");
-      Serial.println(yEnd-1);
-    }
-    invisibleCounter++;
-#endif
-    return;  // Le bloc n'est pas visible sur la matrice
-  }
-  
-  // Limiter aux frontières de la matrice
-  if (xStart < 0) xStart = 0;
-  if (xEnd > MATRIX_WIDTH) xEnd = MATRIX_WIDTH;
-  if (yStart < 0) yStart = 0;
-  if (yEnd > MATRIX_HEIGHT) yEnd = MATRIX_HEIGHT;
-  
-#if DEBUG_SERIAL
-  static uint8_t debugCounter = 0;
-  if (debugCounter % 20 == 0) {
-    Serial.print("Dessin bloc: x=");
-    Serial.print(xStart);
-    Serial.print("->");
-    Serial.print(xEnd-1);
-    Serial.print(", y=");
-    Serial.print(yStart);
-    Serial.print("->");
-    Serial.println(yEnd-1);
-  }
-  debugCounter++;
-#endif
-  
-  // Dessiner le bloc si visible
-  if (xStart < xEnd && yStart < yEnd) {
-    // Ajouter un cadre en couleur différente pour une meilleure visibilité
-    uint8_t blockColor = block.color;
-    
-    // Dessiner le contour en jaune
-    for (int16_t x = xStart; x < xEnd; x++) {
-      if (x >= 0 && x < MATRIX_WIDTH) {
-        if (yStart >= 0 && yStart < MATRIX_HEIGHT) {
-          ht1632_plot(x, yStart, ORANGE);
-        }
-        if (yEnd-1 >= 0 && yEnd-1 < MATRIX_HEIGHT) {
-          ht1632_plot(x, yEnd-1, ORANGE);
-        }
-      }
-    }
-    
-    for (uint8_t y = yStart; y < yEnd; y++) {
-      if (y >= 0 && y < MATRIX_HEIGHT) {
-        if (xStart >= 0 && xStart < MATRIX_WIDTH) {
-          ht1632_plot(xStart, y, ORANGE);
-        }
-        if (xEnd-1 >= 0 && xEnd-1 < MATRIX_WIDTH) {
-          ht1632_plot(xEnd-1, y, ORANGE);
-        }
-      }
-    }
-    
-    // Remplir l'intérieur du bloc
-    for (int16_t x = xStart+1; x < xEnd-1; x++) {
-      for (uint8_t y = yStart+1; y < yEnd-1; y++) {
-        if (x >= 0 && x < MATRIX_WIDTH && y >= 0 && y < MATRIX_HEIGHT) {
-          ht1632_plot(x, y, blockColor);
-        }
-      }
-    }
-    
-#if DEBUG_SERIAL
-    if (debugCounter % 50 == 0) {
-      Serial.println("Bloc dessiné avec succès");
-    }
-#endif
-  }
-}
+// Mise à jour pour utiliser la pin 3 pour le buzzer
+const int buzzerPin = 3; // Pin du buzzer
 
-// Fonction pour passer à la prochaine note de la chanson
-void nextNote() {
-  const MusicNote* currentSong;
-  uint8_t currentSongSize;
-  
-  // Déterminer quelle partie de la chanson nous jouons
-  switch (currentSongPart) {
-    case 0:  // Intro
-      currentSong = intro;
-      currentSongSize = INTRO_SIZE;
-      break;
-    case 1:  // Verse
-      currentSong = verse;
-      currentSongSize = VERSE_SIZE;
-      break;
-    case 2:  // Chorus
-      currentSong = chorus;
-      currentSongSize = CHORUS_SIZE;
-      break;
-    case 3:  // Hook
-      currentSong = hookPart;
-      currentSongSize = HOOK_SIZE;
-      break;
-    default:
-      songFinished = 1;
-      return;
+void playMusic() {
+  static unsigned long lastNoteTime = 0;
+  static uint8_t currentNoteIndex = 0;
+  static bool isPlaying = false;
+
+  unsigned long currentTime = millis();
+
+  if (!isPlaying) {
+    // Démarrer la lecture de la musique
+    currentNoteIndex = 0;
+    isPlaying = true;
   }
-  
-  if (songPosition < currentSongSize) {
-    createNewBlock(currentSong, songPosition);
-    songPosition++;
+
+  if (currentNoteIndex < INTRO_SIZE) {
+    MusicNote note;
+    getNote(intro, currentNoteIndex, &note);
+
+    if (currentTime - lastNoteTime > (60000 / 120) * (4 / note.duration)) { // Basé sur un tempo de 120 BPM
+      tone(buzzerPin, note.frequency, (60000 / 120) * (4 / note.duration));
+      lastNoteTime = currentTime;
+      currentNoteIndex++;
+    }
   } else {
-    currentSongPart++;
-    songPosition = 0;
-    
-    if (currentSongPart > 3) {
-      songFinished = 1;
-    } else {
-      nextNote();
+    noTone(buzzerPin); // Arrêter le buzzer lorsque la musique est terminée
+    isPlaying = false;
+  }
+}
+
+// Modification pour synchroniser les notes avec la musique "Frère Jacques"
+void playMusicWithTiles() {
+  static unsigned long lastNoteTime = 0;
+  static uint8_t currentNoteIndex = 0;
+  static bool musicStarted = false;
+
+  unsigned long currentTime = millis();
+
+  // Vérifier si une tuile atteint la ligne verte pour démarrer la musique
+  if (!musicStarted) {
+    for (int i = 0; i < NUM_COLUMNS; i++) {
+      if (tiles[i].active && tiles[i].x <= 2) { // Ligne verte sur colonnes 2 et 3
+        musicStarted = true;
+        currentNoteIndex = 0;
+        lastNoteTime = currentTime;
+        break;
+      }
+    }
+  }
+
+  if (musicStarted && currentNoteIndex < FRERE_JACQUES_SIZE) {
+    MusicNote note;
+    getNote(frereJacques, currentNoteIndex, &note);
+
+    // Jouer la note si le temps est écoulé
+    if (currentTime - lastNoteTime >= (60000 / 120) * (4 / note.duration)) { // Basé sur un tempo de 120 BPM
+      tone(buzzerPin, note.frequency, (60000 / 120) * (4 / note.duration));
+      lastNoteTime = currentTime;
+      currentNoteIndex++;
+    }
+  } else if (currentNoteIndex >= FRERE_JACQUES_SIZE) {
+    noTone(buzzerPin); // Arrêter le buzzer lorsque la musique est terminée
+    musicStarted = false; // Réinitialiser pour rejouer si nécessaire
+  }
+}
+
+void initializeTiles() {
+  for (int i = 0; i < NUM_COLUMNS; i++) {
+    tiles[i].x = MATRIX_WIDTH; // Hors de l'écran au départ
+    tiles[i].y = i;
+    tiles[i].active = false;
+  }
+}
+
+// Correction pour éviter le blocage après 3 blocs
+void updateTiles() {
+  for (int i = 0; i < NUM_COLUMNS; i++) {
+    if (tiles[i].active) {
+      tiles[i].x -= TILE_SPEED; // Déplacement des tuiles vers la gauche
+      if (tiles[i].x < 0) {
+        // Si une tuile atteint la ligne verte sans être validée, désactiver le bloc
+        tiles[i].active = false;
+        Serial.println("Tuile manquée !");
+      }
     }
   }
 }
 
-// Ajout d'une ligne verte à gauche de l'écran pour valider les notes
+void spawnTile() {
+  int row = random(0, NUM_COLUMNS);
+  if (!tiles[row].active) {
+    tiles[row].x = MATRIX_WIDTH;
+    tiles[row].y = row;
+    tiles[row].active = true;
+  }
+}
+
+void spawnTileFromMusic() {
+  if (currentNoteIndex < INTRO_SIZE) { // Utilisation de l'intro comme exemple
+    MusicNote note;
+    getNote(intro, currentNoteIndex, &note);
+
+    // Déterminer la colonne en fonction de la fréquence de la note
+    int column = (note.frequency % NUM_COLUMNS);
+
+    if (!tiles[column].active) {
+      tiles[column].x = MATRIX_WIDTH;
+      tiles[column].y = column;
+      tiles[column].active = true;
+    }
+
+    currentNoteIndex++;
+  } else {
+    currentNoteIndex = 0; // Réinitialiser à la première note
+  }
+}
+
+// Modification pour doubler l'épaisseur des tuiles
+void drawTiles() {
+  for (int i = 0; i < NUM_COLUMNS; i++) {
+    if (tiles[i].active) {
+      for (int x = 0; x < TILE_WIDTH; x++) {
+        for (int y = 0; y < 2; y++) { // Double l'épaisseur des tuiles
+          if (tiles[i].x + x >= 0 && tiles[i].x + x < MATRIX_WIDTH && tiles[i].y * (MATRIX_HEIGHT / NUM_COLUMNS) + y < MATRIX_HEIGHT) {
+            ht1632_plot(tiles[i].x + x, tiles[i].y * (MATRIX_HEIGHT / NUM_COLUMNS) + y, GREEN);
+          }
+        }
+      }
+    }
+  }
+}
+
+void validateTile(int row) {
+  if (tiles[row].active && tiles[row].x <= 0) {
+    tiles[row].active = false; // Désactiver le bloc validé
+    score++;
+    Serial.print("Score: ");
+    Serial.println(score);
+  }
+}
+
+// Modification pour élargir la ligne de validation à deux colonnes (2e et 3e colonnes)
 void drawValidationLine() {
   for (uint8_t y = 0; y < MATRIX_HEIGHT; y++) {
-    ht1632_plot(0, y, GREEN); // Dessine une ligne verte sur la première colonne
+    ht1632_plot(1, y, GREEN); // Dessine une ligne verte sur la deuxième colonne
+    ht1632_plot(2, y, GREEN); // Dessine une ligne verte sur la troisième colonne
+  }
+}
+
+// Modification pour que le curseur soit en 2x2 pour correspondre aux blocs
+void drawSliderCursor() {
+  // Lire la valeur du potentiomètre (slider)
+  int sliderValue = analogRead(potPin);
+
+  // Mapper la valeur du slider à la hauteur de la matrice
+  int cursorPosition = map(sliderValue, 0, 1023, 0, MATRIX_HEIGHT - 2); // Ajusté pour 2x2
+
+  // Dessiner le curseur rouge en 2x2 sur les colonnes 2 et 3 (ligne verte)
+  for (int y = 0; y < 2; y++) {
+    ht1632_plot(1, cursorPosition + y, RED);
+    ht1632_plot(2, cursorPosition + y, RED);
   }
 }
 
@@ -308,123 +218,52 @@ void setup() {
   setup7Seg();
   ht1632_clear();
   
-  // Initialiser les blocs
-  for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-    blocks[i].active = 0;
-  }
-  
-  // Initialiser lastMoveTime pour garantir un déplacement immédiat
-  lastMoveTime = 0;  // Forcer le premier déplacement rapidement
-  
-  // Créer le premier bloc
-  nextNote();
+  // Initialiser les tuiles
+  initializeTiles();
   
 #if DEBUG_SERIAL
-  Serial.println("Premier bloc créé, prêt pour animation");
+  Serial.println("Tuiles initialisées, prêt pour animation");
 #endif
 }
 
 void loop() {
   unsigned long currentTime = millis();
-  
+
   // Effacer la matrice
   ht1632_clear();
-  
+
   // Dessiner la ligne de validation
   drawValidationLine();
-  
-  // Variables pour éviter les créations multiples de notes
-  static unsigned long lastNoteCreationTime = 0;
-  static bool noteCreationInProgress = false;
-  
-  // Vérifier s'il est temps de créer une nouvelle note
-  if (!songFinished && currentTime - lastNoteTime >= currentNoteDelay) {
-    // Éviter les créations multiples en ajoutant une période de "refroidissement"
-    if (currentTime - lastNoteCreationTime >= 800) {  // Attendre au moins 1 seconde entre les créations
-      lastNoteCreationTime = currentTime;
-      noteCreationInProgress = true;
-      
-#if DEBUG_SERIAL
-      Serial.println("Création d'une nouvelle note...");
-#endif
-      
-      nextNote();
-      noteCreationInProgress = false;
-    }
+
+  // Dessiner le curseur rouge contrôlé par le slider
+  drawSliderCursor();
+
+  // Mettre à jour les tuiles
+  if (currentTime - lastUpdateTime > 50) {
+    updateTiles();
+    lastUpdateTime = currentTime;
   }
-  
-  // Déplacer les blocs actifs 
-  if (currentTime - lastMoveTime > moveDelay) {
-    // Ajouter un message de débogage pour voir si cette section est exécutée
-#if DEBUG_SERIAL
-    Serial.println("Déplacement des blocs...");
-#endif
-    
-    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-      if (blocks[i].active) {
-        // Position avant déplacement
-        int16_t oldX = blocks[i].x;
-        
-        // Déplacement: ne se déplacer que d'un pixel à chaque itération
-        blocks[i].x--;
-        
-#if DEBUG_SERIAL
-        // Débogage du déplacement (seulement pour quelques blocs pour éviter trop de messages)
-        if (i < 3) {  // Limiter à 3 blocs pour le débogage
-          Serial.print("Bloc ");
-          Serial.print(i);
-          Serial.print(" déplacé: ");
-          Serial.print(oldX);
-          Serial.print(" -> ");
-          Serial.println(blocks[i].x);
-        }
-#endif
-        
-        // Désactiver le bloc s'il est complètement sorti de l'écran
-        if (blocks[i].x + blocks[i].length < 0) {
-          blocks[i].active = 0;
-#if DEBUG_SERIAL
-          Serial.print("Bloc ");
-          Serial.print(i);
-          Serial.println(" désactivé (hors écran)");
-#endif
-        }
-      }
-    }
-    lastMoveTime = currentTime;
+
+  // Dessiner les tuiles
+  drawTiles();
+
+  // Générer une nouvelle tuile synchronisée avec la musique
+  if (currentTime - lastNoteTime > 500) { // Intervalle basé sur la durée des notes
+    spawnTileFromMusic();
+    lastNoteTime = currentTime;
   }
-  
-  // Simplifier l'affichage - Ne pas trier les blocs, les afficher simplement
-  for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-    if (blocks[i].active) {
-      drawBlock(blocks[i]);
-    }
-  }
-  
-  // Redémarrer la séquence si terminée
-  if (songFinished) {
-    bool allBlocksInactive = true;
-    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-      if (blocks[i].active) {
-        allBlocksInactive = false;
-        break;
-      }
-    }
-    
-    if (allBlocksInactive) {
-      songFinished = 0;
-      currentSongPart = 0;
-      songPosition = 0;
-      noteCreationInProgress = false;
-      lastNoteCreationTime = 0;
-      
-#if DEBUG_SERIAL
-      Serial.println("Redémarrage de la séquence musicale");
-#endif
-      
-      nextNote();
-    }
-  }
-  
+
+  // Simuler une validation (par exemple, en appuyant sur un bouton)
+  if (digitalRead(2) == HIGH) validateTile(0);
+  if (digitalRead(3) == HIGH) validateTile(1);
+  if (digitalRead(4) == HIGH) validateTile(2);
+  if (digitalRead(5) == HIGH) validateTile(3);
+
+  // Jouer la musique via le buzzer
+  playMusic();
+
+  // Synchroniser les notes avec les tuiles
+  playMusicWithTiles();
+
   delay(10);
 }
