@@ -44,6 +44,11 @@ unsigned long lastMoveTime = 0;
 uint16_t currentNoteDelay = 0;
 uint8_t blockPriorityCounter = 0;
 
+// Variables globales pour le curseur
+volatile int potValue = 0;
+volatile uint8_t cursorY = 0;
+uint8_t cursorY_displayed = 0;
+
 // Débogage 1 = oui, 0 = non
 #define DEBUG_SERIAL 1
 
@@ -303,33 +308,30 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
 }
 
 // Fonction pour dessiner un bloc sur la matrice
+// Modifié : sur colonnes 2/3, le bloc passe devant la colonne verte sauf si il est sous le curseur (alors il passe derrière)
 void drawBlock(Block block) {
   if (!block.active) return;
-  
-  // variables locales 
+
   int16_t xStart = block.x;
   int16_t xEnd = xStart + block.length;
-  uint8_t yPos = block.y;  // Position Y de départ
+  uint8_t yPos = block.y;
 
-  // Vérifier si le bloc est au moins partiellement visible
-  if (xEnd <= 0 || xStart >= MATRIX_WIDTH || yPos >= MATRIX_HEIGHT) {
-    return;  // Le bloc n'est pas visible sur la matrice
-  }
-
-  // Limiter aux frontières de la matrice
   if (xStart < 0) xStart = 0;
-  if (xEnd > MATRIX_WIDTH) xEnd = MATRIX_WIDTH;
+  if (xEnd > MATRIX_WIDTH) xEnd = xEnd;
 
-  // Correction : dessiner le bloc sur exactement 2 lignes (yPos et yPos+1)
   for (int16_t x = xStart; x < xEnd; x++) {
-    if (x >= 0 && x < MATRIX_WIDTH) {
-      if (yPos < MATRIX_HEIGHT) {
-        ht1632_plot(x, yPos, block.color);      // Première ligne
+    if (x == 2 || x == 3) {
+      // Si le bloc est à la hauteur du curseur, il passe derrière (ne dessine rien ici)
+      if (yPos == cursorY_displayed || yPos == cursorY_displayed + 1) {
+        // ne rien dessiner ici, la colonne verte reste devant
+      } else {
+        // sinon, le bloc passe devant la colonne verte
+        if (yPos < MATRIX_HEIGHT) ht1632_plot(x, yPos, block.color);
+        if (yPos + 1 < MATRIX_HEIGHT) ht1632_plot(x, yPos + 1, block.color);
       }
-      if (yPos + 1 < MATRIX_HEIGHT) {
-        ht1632_plot(x, yPos + 1, block.color);  // Deuxième ligne
-      }
-      // Ne rien dessiner sur d'autres lignes
+    } else if (x >= 0 && x < MATRIX_WIDTH) {
+      if (yPos < MATRIX_HEIGHT) ht1632_plot(x, yPos, block.color);
+      if (yPos + 1 < MATRIX_HEIGHT) ht1632_plot(x, yPos + 1, block.color);
     }
   }
 }
@@ -392,6 +394,189 @@ void nextNote() {
 }
 
 
+
+// Fonction périodique pour lire le potentiomètre et calculer la position cible du curseur
+void updateCursorFromPot() {
+  potValue = analogRead(potPin);
+  int y = map(potValue, 0, 1023, 0, MATRIX_HEIGHT - 2);
+  if (y < 0) y = 0;
+  if (y > MATRIX_HEIGHT - 2) y = MATRIX_HEIGHT - 2;
+  cursorY = (uint8_t)y;
+}
+
+// Efface le curseur 2x2 à une position donnée et restaure la colonne verte uniquement sur cette zone
+void eraseCursor(uint8_t y) {
+  for (uint8_t dx = 2; dx <= 3; dx++) {
+    for (uint8_t dy = 0; dy < 2; dy++) {
+      if (y + dy < MATRIX_HEIGHT) {
+        ht1632_plot(dx, y + dy, 1); // remet la colonne verte uniquement sous le curseur
+      }
+    }
+  }
+}
+
+// Affiche le curseur 2x2 rouge à une position donnée
+void drawCursor(uint8_t y) {
+  for (uint8_t dx = 2; dx <= 3; dx++) {
+    for (uint8_t dy = 0; dy < 2; dy++) {
+      if (y + dy < MATRIX_HEIGHT) {
+        ht1632_plot(dx, y + dy, 2);
+      }
+    }
+  }
+}
+
+// Fonction périodique pour déplacer le curseur bloc par bloc sans clignotement
+void periodicMoveCursor() {
+  static unsigned long lastCursorMove = 0;
+  unsigned long now = millis();
+  const unsigned long cursorDelay = 8; // ms, vitesse du curseur
+
+  if (now - lastCursorMove > cursorDelay) {
+    if (cursorY_displayed < cursorY) {
+      eraseCursor(cursorY_displayed);
+      cursorY_displayed++;
+      drawCursor(cursorY_displayed);
+    } else if (cursorY_displayed > cursorY) {
+      eraseCursor(cursorY_displayed);
+      cursorY_displayed--;
+      drawCursor(cursorY_displayed);
+    }
+    // Si égal, rien à faire (pas de clignotement)
+    lastCursorMove = now;
+  }
+}
+
+// Efface uniquement la colonne et lignes concernées par la queue d'un bloc
+void eraseBlockTail(const Block& block) {
+  int16_t tailX = block.x + block.length; // colonne qui disparait
+  if (tailX >= 0 && tailX < MATRIX_WIDTH) {
+    if (block.y < MATRIX_HEIGHT) ht1632_plot(tailX, block.y, 0);
+    if (block.y + 1 < MATRIX_HEIGHT) ht1632_plot(tailX, block.y + 1, 0);
+  }
+}
+
+// Affiche uniquement la tête du bloc (nouvelle colonne)
+// Même logique que drawBlock pour la gestion du curseur et des colonnes vertes
+void drawBlockHead(const Block& block) {
+  int16_t headX = block.x;
+  uint8_t yPos = block.y;
+  if (headX == 2 || headX == 3) {
+    if (yPos == cursorY_displayed || yPos == cursorY_displayed + 1) {
+      // ne rien dessiner ici, la colonne verte reste devant
+    } else {
+      if (yPos < MATRIX_HEIGHT) ht1632_plot(headX, yPos, block.color);
+      if (yPos + 1 < MATRIX_HEIGHT) ht1632_plot(headX, yPos + 1, block.color);
+    }
+  } else if (headX >= 0 && headX < MATRIX_WIDTH) {
+    if (yPos < MATRIX_HEIGHT) ht1632_plot(headX, yPos, block.color);
+    if (yPos + 1 < MATRIX_HEIGHT) ht1632_plot(headX, yPos + 1, block.color);
+  }
+}
+
+// Fonction périodique pour déplacer les blocs et mettre à jour l'affichage pixel par pixel
+void periodicMoveBlocks() {
+  static unsigned long lastMoveTime = 0;
+  unsigned long currentTime = millis();
+  if (currentTime - lastMoveTime > moveDelay) {
+    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+      if (blocks[i].active) {
+        // Efface la queue du bloc à l'ancienne position
+        eraseBlockTail(blocks[i]);
+        // Déplace le bloc
+        blocks[i].x--;
+        // Affiche la tête du bloc à la nouvelle position
+        drawBlockHead(blocks[i]);
+        // Désactive le bloc s'il est complètement sorti de l'écran
+        if (blocks[i].x + blocks[i].length < 0) {
+          blocks[i].active = 0;
+        }
+      }
+    }
+    lastMoveTime = currentTime;
+  }
+}
+
+// Fonction périodique pour gérer la création des notes/blocs et la musique
+void periodicNotesAndMusic() {
+  static unsigned long lastNoteCreationTime = 0;
+  static bool noteCreationInProgress = false;
+  static uint16_t lastPlayedFrequency = 0;
+  static unsigned long noteStartTime = 0;
+  static uint16_t noteDurationMs = 0;
+  unsigned long currentTime = millis();
+
+  // Création des notes/blocs
+  if (!songFinished && currentTime - lastNoteTime >= currentNoteDelay && !noteCreationInProgress) {
+    if (currentTime - lastNoteCreationTime >= 1000) {
+      lastNoteCreationTime = currentTime;
+      noteCreationInProgress = true;
+      nextNote();
+      noteCreationInProgress = false;
+    }
+  }
+
+#if MUSIQUE
+  // Lecture de la note courante sur le buzzer
+  if (!songFinished) {
+    const MusicNote* currentSong;
+    uint8_t currentSongSize;
+    switch (currentSongPart) {
+      case 0: currentSong = intro; currentSongSize = INTRO_SIZE; break;
+      case 1: currentSong = verse; currentSongSize = VERSE_SIZE; break;
+      case 2: currentSong = chorus; currentSongSize = CHORUS_SIZE; break;
+      case 3: currentSong = hookPart; currentSongSize = HOOK_SIZE; break;
+      default: currentSong = intro; currentSongSize = INTRO_SIZE; break;
+    }
+    if (songPosition > 0 && songPosition <= currentSongSize) {
+      MusicNote note;
+      getNote(currentSong, songPosition - 1, &note);
+      if (note.frequency != lastPlayedFrequency || (millis() - noteStartTime > noteDurationMs)) {
+        if (note.frequency > 0) {
+          noteDurationMs = 60000 / 140 * 4 / note.duration;
+          tone(BUZZER_PIN, note.frequency, noteDurationMs);
+          noteStartTime = millis();
+        } else {
+          noTone(BUZZER_PIN);
+        }
+        lastPlayedFrequency = note.frequency;
+      }
+    } else {
+      noTone(BUZZER_PIN);
+      lastPlayedFrequency = 0;
+    }
+  } else {
+    noTone(BUZZER_PIN);
+    lastPlayedFrequency = 0;
+  }
+#endif
+}
+
+// Affiche les colonnes 2 et 3 en vert (statique, hors zone curseur et hors zone bloc)
+void drawStaticColumnsExceptCursorAndBlocks() {
+  for (uint8_t y = 0; y < MATRIX_HEIGHT; y++) {
+    bool blocPresent = false;
+    // Vérifie si un bloc actif occupe la colonne 2 ou 3 à cette hauteur
+    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+      if (blocks[i].active) {
+        int16_t xStart = blocks[i].x;
+        int16_t xEnd = xStart + blocks[i].length;
+        if ((2 >= xStart && 2 < xEnd) || (3 >= xStart && 3 < xEnd)) {
+          if (y == blocks[i].y || y == blocks[i].y + 1) {
+            blocPresent = true;
+            break;
+          }
+        }
+      }
+    }
+    // Ne pas dessiner sur la zone du curseur affiché ni sur la zone d'un bloc
+    if (!blocPresent && (y < cursorY_displayed || y >= cursorY_displayed + 2)) {
+      ht1632_plot(2, y, 1);
+      ht1632_plot(3, y, 1);
+    }
+  }
+}
+
 void setup() {
   // Réactiver Serial pour le débogage
 #if DEBUG_SERIAL
@@ -427,151 +612,34 @@ void setup() {
 }
 
 void loop() {
-  unsigned long currentTime = millis();
-  
-  // Effacer la matrice
-  ht1632_clear();
-
-  // Remplir les colonnes 2 et 3 de vert (color=1)
-  for (uint8_t y = 0; y < MATRIX_HEIGHT; y++) {
-    ht1632_plot(2, y, 1); // colonne 2
-    ht1632_plot(3, y, 1); // colonne 3
+  // Gestion utilisateur (curseur)
+  static unsigned long lastPotRead = 0;
+  if (millis() - lastPotRead > 5) { // lecture plus fréquente du potentiomètre
+    updateCursorFromPot();
+    lastPotRead = millis();
   }
 
-  // --- Curseur 2x2 contrôlé par le potentiomètre ---
-  int potValue = analogRead(potPin); // 0 à 1023
-  // Correction : map() doit être sur int, et clamp la valeur
-  int cursorY = map(potValue, 0, 1023, 0, MATRIX_HEIGHT - 2);
-  if (cursorY < 0) cursorY = 0;
-  if (cursorY > MATRIX_HEIGHT - 2) cursorY = MATRIX_HEIGHT - 2;
-  for (uint8_t dx = 2; dx <= 3; dx++) {
-    for (uint8_t dy = 0; dy < 2; dy++) {
-      ht1632_plot(dx, cursorY + dy, 2); // rouge
-    }
-  }
-  // --------------------------------------------------
-  
-  // Variables pour éviter les créations multiples de notes
-  static unsigned long lastNoteCreationTime = 0;
-  static bool noteCreationInProgress = false;
-  static uint16_t lastPlayedFrequency = 0;
-  static unsigned long noteStartTime = 0;
-  static uint16_t noteDurationMs = 0;
-  
-  // Vérifier s'il est temps de créer une nouvelle note
-  if (!songFinished && currentTime - lastNoteTime >= currentNoteDelay && !noteCreationInProgress) {
-    // Éviter les créations multiples même pendant les appels successifs à loop()
-    if (currentTime - lastNoteCreationTime >= 1000) { // Augmenté à 1 seconde minimum
-      lastNoteCreationTime = currentTime;
-      noteCreationInProgress = true;
-      
-#if DEBUG_SERIAL
-      Serial.println("Création d'une nouvelle note...");
-#endif
-      
-      nextNote();
-      noteCreationInProgress = false;
-    }
-  }
-  
-#if MUSIQUE
-  // Lecture de la note courante sur le buzzer
-  // On joue la note correspondant à la dernière note créée
-  if (!songFinished) {
-    const MusicNote* currentSong;
-    uint8_t currentSongSize;
-    switch (currentSongPart) {
-      case 0: currentSong = intro; currentSongSize = INTRO_SIZE; break;
-      case 1: currentSong = verse; currentSongSize = VERSE_SIZE; break;
-      case 2: currentSong = chorus; currentSongSize = CHORUS_SIZE; break;
-      case 3: currentSong = hookPart; currentSongSize = HOOK_SIZE; break;
-      default: currentSong = intro; currentSongSize = INTRO_SIZE; break;
-    }
-    if (songPosition > 0 && songPosition <= currentSongSize) {
-      MusicNote note;
-      getNote(currentSong, songPosition - 1, &note);
-      // Si la note a changé ou si la durée est écoulée, on joue la nouvelle note
-      if (note.frequency != lastPlayedFrequency || (millis() - noteStartTime > noteDurationMs)) {
-        if (note.frequency > 0) {
-          // Calcul de la durée de la note en ms (ajuste selon ton tempo)
-          noteDurationMs = 60000 / 140 * 4 / note.duration;
-          tone(BUZZER_PIN, note.frequency, noteDurationMs);
-          noteStartTime = millis();
-        } else {
-          noTone(BUZZER_PIN);
-        }
-        lastPlayedFrequency = note.frequency;
-      }
-    } else {
-      noTone(BUZZER_PIN);
-      lastPlayedFrequency = 0;
-    }
-  } else {
-    noTone(BUZZER_PIN);
-    lastPlayedFrequency = 0;
-  }
-#endif
-  
-  // Déplacer les blocs actifs 
-  if (currentTime - lastMoveTime > moveDelay) {
-    // Ajouter un message de débogage pour voir si cette section est exécutée
-#if DEBUG_SERIAL
-    Serial.println("Déplacement des blocs...");
-#endif
-    
-    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-      if (blocks[i].active) {
-        // Position avant déplacement
-        int16_t oldX = blocks[i].x;
-        
-        // Déplacement: ne se déplacer que d'un pixel à chaque itération
-        blocks[i].x--;
-        
-#if DEBUG_SERIAL
-        // Débogage du déplacement (seulement pour quelques blocs pour éviter trop de messages)
-        if (i < 3) {  // Limiter à 3 blocs pour le débogage
-          Serial.print("Bloc ");
-          Serial.print(i);
-          Serial.print(" déplacé: ");
-          Serial.print(oldX);
-          Serial.print(" -> ");
-          Serial.println(blocks[i].x);
-        }
-#endif
-        
-        // Désactiver le bloc s'il est complètement sorti de l'écran
-        if (blocks[i].x + blocks[i].length < 0) {
-          blocks[i].active = 0;
-#if DEBUG_SERIAL
-          Serial.print("Bloc ");
-          Serial.print(i);
-          Serial.println(" désactivé (hors écran)");
-#endif
-        }
-      }
-    }
-    lastMoveTime = currentTime;
-  }
-  
-  // Simplifier l'affichage - Ne pas trier les blocs, les afficher simplement
+  // Gestion périodique du curseur (déplacement fluide)
+  periodicMoveCursor();
+
+  // Gestion périodique des blocs et de la musique
+  periodicMoveBlocks();
+  periodicNotesAndMusic();
+
+  // Affichage statique (colonnes vertes) sauf sous le curseur et sauf sous un bloc
+  drawStaticColumnsExceptCursorAndBlocks();
+
+  // Affichage du curseur à la position affichée (évite le clignotement)
+  drawCursor(cursorY_displayed);
+
+  // Affichage des têtes de blocs actifs (pour le cas où ils sont nouveaux)
   for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
     if (blocks[i].active) {
-      drawBlock(blocks[i]);
+      drawBlockHead(blocks[i]);
     }
   }
-  
-  // Mettre à jour lastNoteStillActive
-  lastNoteStillActive = false;
-  for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-    if (blocks[i].active && blocks[i].x > MATRIX_WIDTH/2) {
-      if (getPositionYFromFrequency(lastNoteFrequency) == blocks[i].y) {
-        lastNoteStillActive = true;
-        break;
-      }
-    }
-  }
-  
-  // Redémarrer la séquence si terminée
+
+  // Gestion de la fin de séquence musicale
   if (songFinished) {
     bool allBlocksInactive = true;
     for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
@@ -580,21 +648,13 @@ void loop() {
         break;
       }
     }
-    
     if (allBlocksInactive) {
       songFinished = 0;
       currentSongPart = 0;
       songPosition = 0;
-      noteCreationInProgress = false;
-      lastNoteCreationTime = 0;
-      
-#if DEBUG_SERIAL
-      Serial.println("Redémarrage de la séquence musicale");
-#endif
-      
-      nextNote();
+      // Réinitialise la musique si besoin
     }
   }
-  
-  delay(10);
+
+  delay(5); // boucle rapide
 }
