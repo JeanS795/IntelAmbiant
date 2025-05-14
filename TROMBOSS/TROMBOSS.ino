@@ -6,13 +6,16 @@
 // Définition du pin du potentiomètre
 const int potPin = A0;
 
+// Définition du pin du bouton
+const int buttonPin = 12;
+
 // Constantes pour la matrice LED
 #define MATRIX_WIDTH 32
 #define MATRIX_HEIGHT 16
 #define BLOCK_HEIGHT 2
 #define MAX_BLOCKS 12
 
-#define MUSIQUE 1
+#define MUSIQUE 0
 #define BUZZER_PIN 3
 
 // Structure pour stocker les informations d'un bloc 
@@ -50,6 +53,12 @@ uint8_t blockPriorityCounter = 0;
 volatile int potValue = 0;
 volatile uint8_t cursorY = 0;
 uint8_t cursorY_displayed = 0;
+
+// Variables pour le bouton et le clignotement du curseur
+bool buttonPressed = false;
+bool cursorVisible = true;
+unsigned long lastBlinkTime = 0;
+const unsigned long blinkInterval = 200; // Vitesse de clignotement en ms
 
 // Débogage 1 = oui, 0 = non
 #define DEBUG_SERIAL 1
@@ -439,6 +448,23 @@ void periodicMoveCursor() {
   unsigned long now = millis();
   const unsigned long cursorDelay = 8; // ms, vitesse du curseur
 
+  // Si le bouton est appuyé, gérer le clignotement du curseur
+  if (buttonPressed) {
+    // Gestion du clignotement
+    if (now - lastBlinkTime > blinkInterval) {
+      cursorVisible = !cursorVisible;
+      lastBlinkTime = now;
+      
+      if (cursorVisible) {
+        drawCursor(cursorY_displayed);
+      } else {
+        eraseCursor(cursorY_displayed);
+      }
+    }
+    return; // On ne déplace pas le curseur quand le bouton est appuyé
+  }
+
+  // Si bouton non appuyé, déplacement normal du curseur
   if (now - lastCursorMove > cursorDelay) {
     if (cursorY_displayed < cursorY) {
       eraseCursor(cursorY_displayed);
@@ -449,7 +475,7 @@ void periodicMoveCursor() {
       cursorY_displayed--;
       drawCursor(cursorY_displayed);
     }
-    // Si égal, rien à faire (pas de clignotement)
+    // Si égal, rien à faire
     lastCursorMove = now;
   }
 }
@@ -609,6 +635,9 @@ void setup() {
   setup7Seg();
   ht1632_clear();
   
+  // Configuration du bouton en entrée avec pull-up interne
+  pinMode(buttonPin, INPUT_PULLUP);
+  
   // Initialiser les blocs
   for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
     blocks[i].active = 0;
@@ -631,6 +660,9 @@ void setup() {
 }
 
 void loop() {
+  // Lecture de l'état du bouton
+  buttonPressed = (digitalRead(buttonPin) == LOW); // Bouton appuyé quand LOW (pull-up)
+
   // Gestion utilisateur (curseur)
   static unsigned long lastPotRead = 0;
   if (millis() - lastPotRead > 5) { // lecture plus fréquente du potentiomètre
@@ -638,7 +670,7 @@ void loop() {
     lastPotRead = millis();
   }
 
-  // Gestion périodique du curseur (déplacement fluide)
+  // Gestion périodique du curseur (déplacement fluide et clignotement si bouton appuyé)
   periodicMoveCursor();
 
   // Gestion périodique des blocs et de la musique
@@ -648,8 +680,10 @@ void loop() {
   // Affichage statique (colonnes vertes) sauf sous le curseur et sauf sous un bloc
   drawStaticColumnsExceptCursorAndBlocks();
 
-  // Affichage du curseur à la position affichée (évite le clignotement)
-  drawCursor(cursorY_displayed);
+  // Affichage du curseur à la position affichée (si bouton non appuyé ou si visible pendant clignotement)
+  if (!buttonPressed || cursorVisible) {
+    drawCursor(cursorY_displayed);
+  }
 
   // Affichage des têtes de blocs actifs (pour le cas où ils sont nouveaux)
   for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
