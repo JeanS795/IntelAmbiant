@@ -653,9 +653,6 @@ void setup() {
 }
 
 void loop() {
-  // Lecture de l'état du bouton
-  buttonPressed = (digitalRead(buttonPin) == LOW); // Bouton appuyé quand LOW (pull-up)
-
   // Gestion utilisateur (curseur)
   static unsigned long lastPotRead = 0;
   static bool lastButtonState = HIGH;
