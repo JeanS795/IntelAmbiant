@@ -5,8 +5,7 @@
 //je suius michel
 // Définition du pin du potentiomètre
 const int potPin = A0;
-
-// Définition du pin du bouton
+// Ajout du bouton
 const int buttonPin = 12;
 
 // Constantes pour la matrice LED
@@ -25,7 +24,6 @@ typedef struct {
   uint8_t length;         // Longueur du bloc (0 à 255)
   uint8_t color : 3;      // Couleur du bloc sur 2 bits (0-3)
   uint8_t active : 1;     // Flag actif sur 1 bit
-  uint8_t priority : 5;   // Priorité sur 5 bits (0-31)
   uint16_t frequency;     // Fréquence de la note associée
 } Block;
 
@@ -35,7 +33,6 @@ typedef struct {
 
 // Variables pour le contrôle des blocs et la déduplication
 Block blocks[MAX_BLOCKS];
-uint8_t nextBlockIndex = 0;
 uint8_t songPosition = 0;
 uint8_t currentSongPart = 0;
 uint8_t songFinished = 0;
@@ -44,21 +41,21 @@ unsigned long lastNoteTime = 0;
 bool lastNoteStillActive = false;  // Pour vérifier si la dernière note est encore active
 
 // Variables de timing - RALENTISSEMENT SIGNIFICATIF
-// const uint16_t moveDelay = 100; // SUPPRIMÉ, remplacé par moveDelay dynamique
 unsigned long lastMoveTime = 0;
 uint16_t currentNoteDelay = 0;
-uint8_t blockPriorityCounter = 0;
+
 
 // Variables globales pour le curseur
 volatile int potValue = 0;
 volatile uint8_t cursorY = 0;
 uint8_t cursorY_displayed = 0;
 
-// Variables pour le bouton et le clignotement du curseur
-bool buttonPressed = false;
+
+bool cursorBlinking = false;
 bool cursorVisible = true;
 unsigned long lastBlinkTime = 0;
-const unsigned long blinkInterval = 200; // Vitesse de clignotement en ms
+const unsigned long blinkInterval = 200; // ms
+
 
 // Débogage 1 = oui, 0 = non
 #define DEBUG_SERIAL 1
@@ -295,17 +292,14 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
     blocks[blockIndex].frequency = note.frequency; // <--- AJOUT
     blockNotePlaying[blockIndex] = false; // <--- AJOUT
     
-    blockPriorityCounter = (blockPriorityCounter + 1) & 0x1F;
-    blocks[blockIndex].priority = blockPriorityCounter;
-    
-#if DEBUG_SERIAL //suivi des blocs créés
+    #if DEBUG_SERIAL //suivi des blocs créés
     Serial.print("Nouveau bloc: x=");
     Serial.print(startX);
     Serial.print(", y=");
     Serial.print(posY);
     Serial.print(", len=");
     Serial.println(length);
-#endif
+    #endif
   }
   else {
     blocks[blockIndex].active = 0;
@@ -442,40 +436,42 @@ void drawCursor(uint8_t y) {
   }
 }
 
-// Fonction périodique pour déplacer le curseur bloc par bloc sans clignotement
+// Fonction périodique pour déplacer le curseur bloc par bloc avec clignotement si demandé
 void periodicMoveCursor() {
   static unsigned long lastCursorMove = 0;
   unsigned long now = millis();
   const unsigned long cursorDelay = 8; // ms, vitesse du curseur
 
-  // Si le bouton est appuyé, gérer le clignotement du curseur
-  if (buttonPressed) {
-    // Gestion du clignotement
+  // Gestion du clignotement si activé
+  if (cursorBlinking) {
     if (now - lastBlinkTime > blinkInterval) {
       cursorVisible = !cursorVisible;
-      lastBlinkTime = now;
-      
       if (cursorVisible) {
         drawCursor(cursorY_displayed);
       } else {
         eraseCursor(cursorY_displayed);
       }
+      lastBlinkTime = now;
     }
-    return; // On ne déplace pas le curseur quand le bouton est appuyé
+  } else {
+    // Si pas de clignotement, s'assurer que le curseur est visible
+    if (!cursorVisible) {
+      drawCursor(cursorY_displayed);
+      cursorVisible = true;
+    }
   }
 
-  // Si bouton non appuyé, déplacement normal du curseur
+  // Déplacement du curseur
   if (now - lastCursorMove > cursorDelay) {
     if (cursorY_displayed < cursorY) {
       eraseCursor(cursorY_displayed);
       cursorY_displayed++;
-      drawCursor(cursorY_displayed);
+      if (cursorVisible) drawCursor(cursorY_displayed);
     } else if (cursorY_displayed > cursorY) {
       eraseCursor(cursorY_displayed);
       cursorY_displayed--;
-      drawCursor(cursorY_displayed);
+      if (cursorVisible) drawCursor(cursorY_displayed);
     }
-    // Si égal, rien à faire
     lastCursorMove = now;
   }
 }
@@ -593,8 +589,7 @@ void periodicNotesAndMusic() {
     }
   }
 
-  // Suppression de la gestion automatique du buzzer ici
-  // ...rien ici...
+
 }
 
 // Affiche les colonnes 2 et 3 en vert (statique, hors zone curseur et hors zone bloc)
@@ -654,9 +649,7 @@ void setup() {
   pinMode(BUZZER_PIN, OUTPUT);
 #endif
   
-#if DEBUG_SERIAL
-  Serial.println("Premier bloc créé, prêt pour animation");
-#endif
+  pinMode(buttonPin, INPUT_PULLUP); // bouton avec résistance de pullup
 }
 
 void loop() {
@@ -665,12 +658,26 @@ void loop() {
 
   // Gestion utilisateur (curseur)
   static unsigned long lastPotRead = 0;
-  if (millis() - lastPotRead > 5) { // lecture plus fréquente du potentiomètre
+  static bool lastButtonState = HIGH;
+  bool buttonState = digitalRead(buttonPin);
+
+  // Lecture bouton pour activer/désactiver le clignotement
+  if (buttonState != lastButtonState) {
+    delay(5); // anti-rebond simple
+    if (buttonState == LOW) {
+      cursorBlinking = true;
+    } else {
+      cursorBlinking = false;
+    }
+    lastButtonState = buttonState;
+  }
+
+  // Ne lire le potentiomètre et ne mettre à jour le curseur QUE si le bouton n'est pas appuyé
+  if (millis() - lastPotRead > 5 && buttonState == HIGH) {
     updateCursorFromPot();
     lastPotRead = millis();
   }
 
-  // Gestion périodique du curseur (déplacement fluide et clignotement si bouton appuyé)
   periodicMoveCursor();
 
   // Gestion périodique des blocs et de la musique
@@ -680,11 +687,7 @@ void loop() {
   // Affichage statique (colonnes vertes) sauf sous le curseur et sauf sous un bloc
   drawStaticColumnsExceptCursorAndBlocks();
 
-  // Affichage du curseur à la position affichée (si bouton non appuyé ou si visible pendant clignotement)
-  if (!buttonPressed || cursorVisible) {
-    drawCursor(cursorY_displayed);
-  }
-
+  // Ne pas appeler drawCursor ici, il est géré dans periodicMoveCursor()
   // Affichage des têtes de blocs actifs (pour le cas où ils sont nouveaux)
   for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
     if (blocks[i].active) {
