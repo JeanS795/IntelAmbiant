@@ -34,6 +34,139 @@ GameState gameState;
 // Variable de score
 Score gameScore;
 
+// ===== FONCTIONS AFFICHAGE 7 SEGMENTS =====
+
+// Fonction pour afficher un chiffre sur un afficheur 7 segments spécifique
+void display7Seg(uint8_t address, uint8_t digit) {
+    if (digit > 9) return; // Protection contre les valeurs invalides
+    
+    // Accéder au tableau Tab7Segts défini dans lib_magic.cpp
+    extern unsigned char Tab7Segts[];
+    
+    Wire.beginTransmission(address);
+    Wire.write(0x09);                   // select the GPIO register (cohérent avec setup7Seg)
+    Wire.write(Tab7Segts[digit]);       // set register value to display digit
+    Wire.endTransmission();
+}
+
+// Fonction pour afficher un chiffre avec le point décimal
+void display7SegWithDot(uint8_t address, uint8_t digit) {
+    if (digit > 9) return; // Protection contre les valeurs invalides
+    
+    // Accéder au tableau Tab7Segts défini dans lib_magic.cpp
+    extern unsigned char Tab7Segts[];
+    
+    Wire.beginTransmission(address);
+    Wire.write(0x09);                           // select the GPIO register
+    Wire.write(Tab7Segts[digit] | 0x01);        // set register value to display digit + point décimal
+    Wire.endTransmission();
+}
+
+// Fonction pour afficher le score transformé (pourcentage) sur A1 (0x20) et A2 (0x21)
+void displayScore(uint8_t transformedScore) {
+    // Si score = 100%, afficher 00 avec point sur A2 (dizaine)
+    if (transformedScore >= 100) {
+        display7Seg(0x20, 0);           // A1 = unité = 0
+        display7SegWithDot(0x21, 0);    // A2 = dizaine = 0 avec point décimal (représente 100%)
+    } else {
+        // Affichage normal pour score < 100%
+        uint8_t unite = transformedScore % 10;
+        uint8_t dizaine = (transformedScore / 10) % 10;
+        
+        display7Seg(0x20, unite);       // A1 = unité
+        display7Seg(0x21, dizaine);     // A2 = dizaine
+    }
+}
+
+// Fonction pour afficher le niveau sur A4 (0x23)
+void displayLevel(uint8_t level) {
+    if (level > 9) level = 9; // Protection : niveau max = 9
+    display7Seg(0x23, level);
+}
+
+// Fonction pour afficher "MENU" sur les 4 afficheurs pendant le menu
+void displayMENU() {
+    Serial.println("Début de displayMENU()");
+    
+    // Codes personnalisés pour MENU
+    uint8_t codeM = 0b11111101; 
+    uint8_t codeE = 0b01100001; 
+    uint8_t codeN = 0b11010101; 
+    uint8_t codeU = 0b10000011; 
+    
+    Serial.println("Envoi des codes aux afficheurs...");
+    
+    Wire.beginTransmission(0x20); // A1
+    Wire.write(0x09);
+    Wire.write(codeM); // M
+    
+    Wire.beginTransmission(0x21); // A2  
+    Wire.write(0x09);
+    Wire.write(codeE); // E
+    
+    Wire.beginTransmission(0x22); // A3
+    Wire.write(0x09);
+    Wire.write(codeN); // N
+
+    
+    Wire.beginTransmission(0x23); // A4
+    Wire.write(0x09);
+    Wire.write(codeU); // U
+    
+    Serial.println("Fin de displayMENU()");
+}
+
+// Fonction pour éteindre tous les afficheurs 7 segments
+void clear7Seg() {
+    for (uint8_t addr = 0x20; addr <= 0x23; addr++) {
+        Wire.beginTransmission(addr);
+        Wire.write(0x09);
+        Wire.write(0x09); // Éteint
+        Wire.endTransmission();
+    }
+}
+
+// Fonction principale pour mettre à jour l'affichage 7 segments selon l'état du jeu
+void update7SegDisplay(uint8_t gameState, uint8_t transformedScore, uint8_t level) {
+    Serial.print("update7SegDisplay: état=");
+    Serial.print(gameState);
+    Serial.print(", score=");
+    Serial.print(transformedScore);
+    Serial.print("%, level=");
+    Serial.println(level);
+    
+    switch (gameState) {        case 0: // GAME_STATE_MENU
+            Serial.println("Affichage MENU");
+            displayMENU();
+            break;
+              case 1: // GAME_STATE_LEVEL (jeu en cours)
+            displayScore(transformedScore);
+            displayLevel(level);
+            // A3 (0x22) reste éteint pendant le jeu
+            Wire.beginTransmission(0x22);
+            Wire.write(0x09);
+            Wire.write(0x09);
+            Wire.endTransmission();
+            break;
+            
+        case 2: // GAME_STATE_WIN 
+        case 3: // GAME_STATE_LOSE
+            // Garder le score et le niveau affichés
+            displayScore(transformedScore);
+            displayLevel(level);
+            // A3 (0x22) reste éteint
+            Wire.beginTransmission(0x22);
+            Wire.write(0x09);
+            Wire.write(0x09);
+            Wire.endTransmission();
+            break;
+            
+        default:
+            clear7Seg();
+            break;
+    }
+}
+
 // Fonction pour obtenir le nombre de cycles selon le niveau de difficulté
 uint8_t getDifficultyBlockMoveCycles(uint8_t level) {
   switch (level) {
@@ -247,8 +380,8 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
   if (posY + BLOCK_HEIGHT > MATRIX_HEIGHT) {
     posY = MATRIX_HEIGHT - BLOCK_HEIGHT;
   }
-  
-  // Position horizontale toujours à droite de l'écran
+    // Position horizontale toujours à droite de l'écran
+  // Commencer à la dernière colonne visible pour apparition progressive
   int16_t startX = MATRIX_WIDTH;  // Modifié en int16_t
   
   // Vérification des superpositions horizontales (colonnes)
@@ -670,16 +803,8 @@ void handleMenuState() {
     menuInitialized = true;
   }
   
-  // Lecture du bouton pour démarrer le jeu
-  static bool lastButtonState = HIGH;
-  bool buttonState = digitalRead(BUTTON_PIN);
-  
-  if (buttonState == LOW && lastButtonState == HIGH) {
-    // Bouton pressé, démarrer le jeu
-    changeGameState(GAME_STATE_LEVEL);
-    menuInitialized = false;
-  }
-  lastButtonState = buttonState;
+  // Note: La gestion du bouton est maintenant dans periodicFunction()
+  // pour éviter les conflits entre les deux fonctions
 }
 
 // Gestion de l'état de jeu (niveau)
@@ -820,6 +945,7 @@ void handleLoseState() {
 void changeGameState(uint8_t newState) {
   if (newState >= GAME_STATE_MENU && newState <= GAME_STATE_LOSE) {
     gameState.etat = newState;
+    clear7Seg();
     
 #if DEBUG_SERIAL
     Serial.print("État: ");
@@ -1100,6 +1226,7 @@ void updateAudio() {
 void periodicFunction() {
   // Incrémenter le compteur périodique
   periodicCounter++;
+    // Note: L'affichage 7 segments est maintenant géré dans loop() pour éviter le blocage I2C dans l'interruption
     // Lecture du bouton (4 fois par seconde = tous les 10 cycles)
   if (periodicCounter % 10 == 0) {
     static bool lastButtonState = HIGH;
@@ -1108,10 +1235,20 @@ void periodicFunction() {
     // Gestion du bouton avec anti-rebond logiciel
     if (buttonState != lastButtonState) {
       if (buttonState == LOW) {
-        cursor.state = CURSOR_STATE_BLINKING;
+        // Bouton pressé
+        if (gameState.etat == GAME_STATE_MENU) {
+          // Dans le menu, changer vers l'état de jeu
+          changeGameState(GAME_STATE_LEVEL);
+        } else if (gameState.etat == GAME_STATE_LEVEL) {
+          // Dans le jeu, activer le clignotement du curseur
+          cursor.state = CURSOR_STATE_BLINKING;
+        }
       } else {
-        cursor.state = CURSOR_STATE_NORMAL;
-        shouldShowCursor = true; // Toujours visible quand on relâche le bouton
+        // Bouton relâché
+        if (gameState.etat == GAME_STATE_LEVEL) {
+          cursor.state = CURSOR_STATE_NORMAL;
+          shouldShowCursor = true; // Toujours visible quand on relâche le bouton
+        }
       }
       lastButtonState = buttonState;
       displayNeedsUpdate = true;
@@ -1368,6 +1505,13 @@ void handleLevelLoop() {
 }
 
 void loop() {
+  // Mise à jour de l'affichage 7 segments (déplacé de periodicFunction pour éviter le blocage I2C)
+  static unsigned long last7SegUpdate = 0;
+  unsigned long currentTime = millis();  if (currentTime - last7SegUpdate >= 500) { // Mise à jour toutes les 500ms (2 fois par seconde)
+    update7SegDisplay(gameState.etat, gameScore.transformed, gameState.level);
+    last7SegUpdate = currentTime;
+  }
+  
   // Machine à états pour gérer les différents états du jeu
   switch (gameState.etat) {
     case GAME_STATE_MENU:
