@@ -539,78 +539,7 @@ void eraseBlockTail(const Block& block) {
   }
 }
 
-// Affiche uniquement la tête du bloc (nouvelle colonne)
-// Fonction périodique pour déplacer les blocs et mettre à jour l'affichage pixel par pixel
-void periodicMoveBlocks() {
-  static unsigned long lastMoveTime = 0;
-  unsigned long currentTime = millis();
-
-  // Calcul dynamique du délai de déplacement en fonction du tempo
-  // 1 temps = 1 noire = 60000 / TEMPO_BPM ms
-  // Pour un effet plus fluide, on peut choisir 1 déplacement par croche (diviser par 2)
-  uint16_t moveDelay = 60000 / TEMPO_BPM; // 1 déplacement par temps (noire)
-  // uint16_t moveDelay = 60000 / TEMPO_BPM / 2; // 1 déplacement par croche (optionnel)
-
-  if (currentTime - lastMoveTime > moveDelay) {
-    // Recherche du bloc prioritaire (le plus à gauche) qui occupe x=2 ou x=3
-    int8_t blockToPlay = -1;
-    int16_t minX = 1000;
-    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-      if (blocks[i].active) {
-        int16_t xStart = blocks[i].x;
-        int16_t xEnd = xStart + blocks[i].length;
-        // Le bloc occupe-t-il x=2 ou x=3 ?
-        if ((2 >= xStart && 2 < xEnd) || (3 >= xStart && 3 < xEnd)) {
-          if (xStart < minX) {
-            minX = xStart;
-            blockToPlay = i;
-          }
-        }
-      }
-    }
-    // Gestion du buzzer : jouer la note du bloc prioritaire, arrêter sinon
-    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-      if (blocks[i].active) {
-        int16_t xStart = blocks[i].x;
-        int16_t xEnd = xStart + blocks[i].length;
-        bool onGreen = (2 >= xStart && 2 < xEnd) || (3 >= xStart && 3 < xEnd);
-        if (onGreen && i == blockToPlay) {
-          if (!blockNotePlaying[i] && blocks[i].frequency > 0) {
-#if MUSIQUE
-            tone(BUZZER_PIN, blocks[i].frequency);
-#endif
-            blockNotePlaying[i] = true;
-          }
-        } else {
-          if (blockNotePlaying[i]) {
-#if MUSIQUE
-            noTone(BUZZER_PIN);
-#endif
-            blockNotePlaying[i] = false;
-          }
-        }
-      } else {
-        blockNotePlaying[i] = false;
-      }
-    }    // Déplacement des blocs
-    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-      if (blocks[i].active) {
-        eraseBlockTail(blocks[i]);
-        blocks[i].x--;
-        drawBlockHead(blocks[i]);
-        
-        // Désactiver le bloc seulement quand il est complètement sorti de l'écran
-        // (quand sa position x + sa longueur est <= 0)
-        if (blocks[i].x + blocks[i].length < -1) {
-          blocks[i].active = 0;
-          blockNotePlaying[i] = false;
-        }
-        // Continuer à déplacer les blocs même quand ils sont partiellement hors écran
-      }
-    }
-    lastMoveTime = currentTime;
-  }
-}
+// Fonction supprimée - logique déplacée dans periodicFunction()
 
 // Affiche les colonnes 2 et 3 en vert (statique, hors zone curseur et hors zone bloc)
 void drawStaticColumnsExceptCursorAndBlocks() {
@@ -807,8 +736,7 @@ void periodicFunction() {
     cursor.yDisplayed--;
     displayNeedsUpdate = true;
   }
-  
-  // Déplacement des blocs (2 fois par seconde = tous les 20 cycles)
+    // Déplacement des blocs (2 fois par seconde = tous les 20 cycles)
   if (periodicCounter % 20 == 0) {
     // Déterminer le bloc prioritaire (le plus à gauche) qui occupe x=2 ou x=3
     int8_t blockToPlay = -1;
@@ -846,10 +774,23 @@ void periodicFunction() {
       }
     }
     
-    // Marquer les blocs pour déplacement (sera effectué dans loop())
+    // Effectuer le déplacement des blocs (Phase 1 - calculs uniquement)
     for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
       if (blocks[i].active) {
-        blocks[i].needsUpdate = 1; // Marquer le bloc pour mise à jour
+        // Sauvegarder l'ancienne position avant de mettre à jour
+        blocks[i].oldX = blocks[i].x;
+        
+        // Déplacer le bloc
+        blocks[i].x--;
+        
+        // Vérifier si le bloc est complètement sorti de l'écran
+        if (blocks[i].x + blocks[i].length < -1) {
+          // Le bloc est complètement sorti de l'écran, le désactiver
+          blocks[i].active = 0;
+          blockNotePlaying[i] = false;
+        }
+        
+        blocks[i].needsUpdate = 1; // Marquer le bloc pour affichage
         displayNeedsUpdate = true; // Indiquer que l'affichage doit être mis à jour
       }
     }
@@ -896,24 +837,13 @@ void loop() {
   
   bool cursorStateChanged = (shouldShowCursor != prevShouldShowCursor);
   bool cursorPositionChanged = (cursor.yDisplayed != cursor.yLast);
-  // Phase 1 : Mettre à jour les blocs si nécessaire (sans affichage)
+  
+  // Vérifier si des blocs ont été mis à jour
   bool anyBlockMoved = false;
   for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
     if (blocks[i].active && blocks[i].needsUpdate) {
-      // Sauvegarder l'ancienne position avant de mettre à jour
-      blocks[i].oldX = blocks[i].x;
-      
-      // Déplacer le bloc
-      blocks[i].x--;
-      blocks[i].needsUpdate = 0; // Réinitialiser le flag de mise à jour
-      anyBlockMoved = true;      // Vérifier si le bloc est complètement sorti de l'écran
-      if (blocks[i].x + blocks[i].length < -1) {
-        // Le bloc est complètement sorti de l'écran, le désactiver
-        blocks[i].active = 0;
-        blockNotePlaying[i] = false;
-      }
-      // Laisser les blocs continuer à se déplacer même quand x < 0
-      // Ne pas les bloquer à la position x=0
+      anyBlockMoved = true;
+      break;
     }
   }
   
@@ -947,17 +877,21 @@ void loop() {
     // Mettre à jour les variables d'état
     cursor.yLast = cursor.yDisplayed;
     prevShouldShowCursor = shouldShowCursor;
-  }
-    // Mise à jour des blocs - seulement effacer et redessiner les pixels modifiés
+  }    // Mise à jour des blocs - seulement effacer et redessiner les pixels modifiés
   for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+    if (blocks[i].active && blocks[i].needsUpdate) {
+      // Effacer l'ancienne queue du bloc (pixel précédent)
+      eraseBlockTail(blocks[i]);
+      
+      // Dessiner la nouvelle tête du bloc
+      drawBlockHead(blocks[i]);
+      
+      // Réinitialiser le flag de mise à jour
+      blocks[i].needsUpdate = 0;
+    }
+    
     if (blocks[i].active) {
-      if (blocks[i].oldX != blocks[i].x) {
-        // Effacer l'ancienne queue du bloc (pixel précédent)
-        eraseBlockTail(blocks[i]);
-        
-        // Dessiner la nouvelle tête du bloc
-        drawBlockHead(blocks[i]);
-      }      // Vérifier spécifiquement si le bloc est en train de sortir de l'écran
+      // Vérifier spécifiquement si le bloc est en train de sortir de l'écran
       if (blocks[i].x < 0 && blocks[i].x + blocks[i].length > 0) {
         // Le bloc est partiellement visible, s'assurer que seules les colonnes
         // visibles sont affichées
@@ -967,14 +901,16 @@ void loop() {
           int16_t colX = blocks[i].x + j;
           
           // N'afficher que les colonnes qui sont visibles à l'écran
-          if (colX >= 0 && colX < MATRIX_WIDTH) {            // Cette colonne est visible, l'afficher
+          if (colX >= 0 && colX < MATRIX_WIDTH) {
+            // Cette colonne est visible, l'afficher
             if (blocks[i].y < MATRIX_HEIGHT) {
               ht1632_plot(colX, blocks[i].y, blocks[i].color);
             }
             if (blocks[i].y + 1 < MATRIX_HEIGHT) {
               ht1632_plot(colX, blocks[i].y + 1, blocks[i].color);
             }
-          }          // Les colonnes qui sortent de l'écran (colX < 0) ne sont pas dessinées
+          }
+          // Les colonnes qui sortent de l'écran (colX < 0) ne sont pas dessinées
           // mais le bloc continue à avancer jusqu'à ce que blocks[i].x + blocks[i].length <= 0
         }
       }
