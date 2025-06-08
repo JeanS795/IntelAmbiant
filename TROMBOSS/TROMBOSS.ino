@@ -2,78 +2,27 @@
 #include "ht1632.h"
 #include "song_patterns.h"
 #include "TimerOne.h"
+#include "definitions.h"
 
 // je suis michel
-// Définition du pin du potentiomètre
-const int potPin = A0;
-// Ajout du bouton
-const int buttonPin = 12;
-
-// Constantes pour la matrice LED
-#define MATRIX_WIDTH 32
-#define MATRIX_HEIGHT 16
-#define BLOCK_HEIGHT 2
-#define MAX_BLOCKS 12
-
-#define MUSIQUE 0
-#define BUZZER_PIN 3
-
-// Constante pour la période d'interruption
-#define TIMER_PERIOD 25000 // 25ms en microsecondes
 
 // Compteur pour la fonction périodique
 volatile uint16_t periodicCounter = 0;
 
-// Structure pour stocker les informations d'un bloc 
-typedef struct {
-  int16_t x;              // Position horizontale, changé en int16_t pour éviter les dépassements
-  uint8_t y;              // Position verticale (0 à 255), changé de int8_t à uint8_t
-  uint8_t length;         // Longueur du bloc (0 à 255)
-  uint8_t color : 3;      // Couleur du bloc sur 2 bits (0-3)
-  uint8_t active : 1;     // Flag actif sur 1 bit
-  uint16_t frequency;     // Fréquence de la note associée
-  uint8_t needsUpdate : 1; // Flag pour indiquer si le bloc doit être mis à jour (déplacé)
-  int16_t oldX;           // Ancienne position X pour effacer uniquement ce qui est nécessaire
-} Block;
-
-// Définition des couleurs
-#define BLOCK_COLOR 3    // RED = 2 selon ht1632.h
-#define BORDER_COLOR 3   // RED = 2 selon ht1632.h
+// Déclaration des variables globales définies dans definitions.h
+Cursor cursor;
+Block blocks[MAX_BLOCKS];
+volatile bool displayNeedsUpdate = false;
+volatile bool shouldShowCursor = true;
 
 // Variables pour le contrôle des blocs et la déduplication
-Block blocks[MAX_BLOCKS];
 uint8_t songPosition = 0;
 uint8_t currentSongPart = 0;
 uint8_t songFinished = 0;
-uint8_t lastNoteFrequency = 0;  // Pour suivre la dernière fréquence utilisée
-bool lastNoteStillActive = false;  // Pour vérifier si la dernière note est encore active
-
-// Variables globales pour le curseur
-volatile int potValue = 0;
-volatile uint8_t cursorY = 0;
-uint8_t cursorY_displayed = 0;
-uint8_t cursorY_last = 0;      // Dernière position affichée du curseur pour effacer correctement
-
-bool cursorBlinking = false;
-bool cursorVisible = true;
-unsigned long lastBlinkTime = 0;
-const unsigned long blinkInterval = 200; // ms
-
-// État précédent du curseur pour détecter les changements
-bool prevShouldShowCursor = true;
-
-
-// Débogage 1 = oui, 0 = non
-#define DEBUG_SERIAL 1
-
-// Pour suivre si la note du bloc est en cours de lecture
+uint8_t lastNoteFrequency = 0;
+bool lastNoteStillActive = false;
 bool blockNotePlaying[MAX_BLOCKS] = {0};
-
-// Flag global pour indiquer quand l'affichage doit être mis à jour
-volatile bool displayNeedsUpdate = false;
-
-// Flag pour indiquer si le curseur doit être affiché ou pas (pour clignotement)
-volatile bool shouldShowCursor = true;
+uint8_t lastNotePosition = 255;
 
 
 
@@ -347,9 +296,8 @@ void drawBlockHead(const Block& block) {
   
   // Déterminer si nous sommes sur les colonnes vertes (2 ou 3)
   bool onGreenColumn = (headX == 2 || headX == 3);
-  
-  // Déterminer si nous sommes sur la position du curseur
-  bool onCursorPosition = (yPos == cursorY_displayed || yPos == cursorY_displayed + 1);
+    // Déterminer si nous sommes sur la position du curseur
+  bool onCursorPosition = (yPos == cursor.yDisplayed || yPos == cursor.yDisplayed + 1);
   
   // Cas spécial: sur les colonnes vertes ET au niveau du curseur
   if (onGreenColumn && onCursorPosition) {
@@ -388,9 +336,6 @@ void drawBlock(Block block) {
     drawBlockHead(tempBlock);
   }
 }
-
-// Variable globale pour garder trace de la dernière note créée
-uint8_t lastNotePosition = 255; // Valeur impossible pour indiquer aucune note créée
 
 // Fonction pour passer à la prochaine note de la chanson
 void nextNote() {
@@ -450,11 +395,11 @@ void nextNote() {
 
 // Fonction périodique pour lire le potentiomètre et calculer la position cible du curseur
 void updateCursorFromPot() {
-  potValue = analogRead(potPin);
-  int y = map(potValue, 0, 1024, 0, MATRIX_HEIGHT - 1);
+  cursor.potValue = analogRead(POT_PIN);
+  int y = map(cursor.potValue, 0, 1024, 0, MATRIX_HEIGHT - 1);
   if (y < 0) y = 0;
   if (y > MATRIX_HEIGHT - 2) y = MATRIX_HEIGHT - 2;
-  cursorY = (uint8_t)y;
+  cursor.y = (uint8_t)y;
 }
 
 // Efface le curseur 2x2 à une position donnée et restaure la colonne verte uniquement sur cette zone
@@ -462,9 +407,9 @@ void eraseCursor(uint8_t y) {
   // Mémoriser l'état des pixels avant effacement pour meilleure restauration
   static uint8_t previousPixelState[2][2] = {{1, 1}, {1, 1}}; // Par défaut, colonne verte
   
-  for (uint8_t dx = 0; dx < 2; dx++) {
-    for (uint8_t dy = 0; dy < 2; dy++) {
-      uint8_t x = dx + 2; // colonnes 2 et 3
+  for (uint8_t dx = 0; dx < CURSOR_WIDTH; dx++) {
+    for (uint8_t dy = 0; dy < CURSOR_HEIGHT; dy++) {
+      uint8_t x = dx + CURSOR_COLUMN_START; // colonnes 2 et 3
       uint8_t yPos = y + dy;
       
       if (yPos < MATRIX_HEIGHT) {
@@ -487,8 +432,8 @@ void eraseCursor(uint8_t y) {
         
         // Si aucun bloc n'est présent, restaurer la colonne verte
         if (!blocPresent) {
-          ht1632_plot(x, yPos, 1); // Colonne verte (couleur 1)
-          previousPixelState[dx][dy] = 1;
+          ht1632_plot(x, yPos, GREEN_COLUMN_COLOR); // Colonne verte
+          previousPixelState[dx][dy] = GREEN_COLUMN_COLOR;
         }
       }
     }
@@ -497,13 +442,13 @@ void eraseCursor(uint8_t y) {
 
 // Affiche le curseur 2x2 rouge à une position donnée
 void drawCursor(uint8_t y) {
-  for (uint8_t dx = 0; dx < 2; dx++) {
-    for (uint8_t dy = 0; dy < 2; dy++) {
-      uint8_t x = dx + 2; // colonnes 2 et 3
+  for (uint8_t dx = 0; dx < CURSOR_WIDTH; dx++) {
+    for (uint8_t dy = 0; dy < CURSOR_HEIGHT; dy++) {
+      uint8_t x = dx + CURSOR_COLUMN_START; // colonnes 2 et 3
       uint8_t yPos = y + dy;
       
       if (yPos < MATRIX_HEIGHT) {
-        ht1632_plot(x, yPos, 2); // Couleur rouge (2)
+        ht1632_plot(x, yPos, CURSOR_COLOR); // Couleur définie par la constante
       }
     }
   }
@@ -516,34 +461,34 @@ void periodicMoveCursor() {
   const unsigned long cursorDelay = 8; // ms, vitesse du curseur
 
   // Gestion du clignotement si activé
-  if (cursorBlinking) {
-    if (now - lastBlinkTime > blinkInterval) {
-      cursorVisible = !cursorVisible;
-      if (cursorVisible) {
-        drawCursor(cursorY_displayed);
+  if (cursor.state == CURSOR_STATE_BLINKING) {
+    if (now - cursor.lastBlinkTime > CURSOR_BLINK_INTERVAL) {
+      cursor.visible = (cursor.visible == CURSOR_VISIBLE) ? CURSOR_HIDDEN : CURSOR_VISIBLE;
+      if (cursor.visible == CURSOR_VISIBLE) {
+        drawCursor(cursor.yDisplayed);
       } else {
-        eraseCursor(cursorY_displayed);
+        eraseCursor(cursor.yDisplayed);
       }
-      lastBlinkTime = now;
+      cursor.lastBlinkTime = now;
     }
   } else {
     // Si pas de clignotement, s'assurer que le curseur est visible
-    if (!cursorVisible) {
-      drawCursor(cursorY_displayed);
-      cursorVisible = true;
+    if (cursor.visible != CURSOR_VISIBLE) {
+      drawCursor(cursor.yDisplayed);
+      cursor.visible = CURSOR_VISIBLE;
     }
   }
 
   // Déplacement du curseur
   if (now - lastCursorMove > cursorDelay) {
-    if (cursorY_displayed < cursorY) {
-      eraseCursor(cursorY_displayed);
-      cursorY_displayed++;
-      if (cursorVisible) drawCursor(cursorY_displayed);
-    } else if (cursorY_displayed > cursorY) {
-      eraseCursor(cursorY_displayed);
-      cursorY_displayed--;
-      if (cursorVisible) drawCursor(cursorY_displayed);
+    if (cursor.yDisplayed < cursor.y) {
+      eraseCursor(cursor.yDisplayed);
+      cursor.yDisplayed++;
+      if (cursor.visible == CURSOR_VISIBLE) drawCursor(cursor.yDisplayed);
+    } else if (cursor.yDisplayed > cursor.y) {
+      eraseCursor(cursor.yDisplayed);
+      cursor.yDisplayed--;
+      if (cursor.visible == CURSOR_VISIBLE) drawCursor(cursor.yDisplayed);
     }
     lastCursorMove = now;
   }
@@ -568,12 +513,11 @@ void eraseBlockTail(const Block& block) {
   if (block.y + 1 < MATRIX_HEIGHT) {
     ht1632_plot(tailX, block.y + 1, 0);
   }
-  
-  // Si c'était sur les colonnes vertes, restaurer les colonnes selon les règles
+    // Si c'était sur les colonnes vertes, restaurer les colonnes selon les règles
   if (tailX == 2 || tailX == 3) {
     for (uint8_t y = 0; y < MATRIX_HEIGHT; y++) {
       // Vérifier si ce n'est pas la position du curseur
-      bool notOnCursor = (y < cursorY_displayed || y >= cursorY_displayed + 2);
+      bool notOnCursor = (y < cursor.yDisplayed || y >= cursor.yDisplayed + 2);
       
       // Vérifier si ce n'est pas la position d'un autre bloc actif
       bool notOnAnotherBlock = true;
@@ -684,9 +628,8 @@ void drawStaticColumnsExceptCursorAndBlocks() {
           }
         }
       }
-    }
-    // Ne pas dessiner sur la zone du curseur affiché ni sur la zone d'un bloc
-    if (!blocPresent && (y < cursorY_displayed || y >= cursorY_displayed + 2)) {
+    }    // Ne pas dessiner sur la zone du curseur affiché ni sur la zone d'un bloc
+    if (!blocPresent && (y < cursor.yDisplayed || y >= cursor.yDisplayed + 2)) {
       ht1632_plot(2, y, 1);
       ht1632_plot(3, y, 1);
     }
@@ -696,7 +639,7 @@ void drawStaticColumnsExceptCursorAndBlocks() {
 // Restaure uniquement les colonnes vertes aux positions spécifiques sans toucher au reste
 void restoreGreenColumn(uint8_t x, uint8_t y) {
   if ((x == 2 || x == 3) && 
-      (y < cursorY_displayed || y >= cursorY_displayed + 2)) {
+      (y < cursor.yDisplayed || y >= cursor.yDisplayed + 2)) {
     // Vérifier qu'aucun bloc ne passe à cette position
     bool blocPresent = false;
     for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
@@ -728,9 +671,18 @@ void setup() {
   ht1632_setup();
   setup7Seg();
   ht1632_clear();
+    // Configuration du bouton en entrée avec pull-up interne
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
   
-  // Configuration du bouton en entrée avec pull-up interne
-  pinMode(buttonPin, INPUT_PULLUP);
+  // Initialiser le curseur
+  cursor.y = 0;
+  cursor.yDisplayed = 0;
+  cursor.yLast = 0;
+  cursor.state = CURSOR_STATE_NORMAL;
+  cursor.visible = CURSOR_VISIBLE;
+  cursor.color = CURSOR_COLOR;
+  cursor.potValue = 0;
+  cursor.lastBlinkTime = 0;
   
   // Initialiser les blocs
   for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
@@ -739,19 +691,14 @@ void setup() {
     blocks[i].needsUpdate = 0;      // Pas de mise à jour nécessaire au départ
     blockNotePlaying[i] = false;
   }
-  
-  // Initialiser les flags d'affichage
+    // Initialiser les flags d'affichage
   displayNeedsUpdate = true; // Forcer un premier affichage
   shouldShowCursor = true;   // Curseur visible initialement
-  
-  // Initialiser les états du curseur
-  cursorY_last = cursorY_displayed;
-  prevShouldShowCursor = shouldShowCursor;
   
   // Affichage initial de la matrice
   ht1632_clear();
   drawStaticColumnsExceptCursorAndBlocks();
-  drawCursor(cursorY_displayed);
+  drawCursor(cursor.yDisplayed);
   
   // Créer le premier bloc
   nextNote();
@@ -803,50 +750,47 @@ void updateAudio() {
 void periodicFunction() {
   // Incrémenter le compteur périodique
   periodicCounter++;
-  
-  // Lecture du bouton (4 fois par seconde = tous les 10 cycles)
+    // Lecture du bouton (4 fois par seconde = tous les 10 cycles)
   if (periodicCounter % 10 == 0) {
     static bool lastButtonState = HIGH;
-    bool buttonState = digitalRead(buttonPin);
+    bool buttonState = digitalRead(BUTTON_PIN);
     
     // Gestion du bouton avec anti-rebond logiciel
     if (buttonState != lastButtonState) {
       if (buttonState == LOW) {
-        cursorBlinking = true;
+        cursor.state = CURSOR_STATE_BLINKING;
       } else {
-        cursorBlinking = false;
+        cursor.state = CURSOR_STATE_NORMAL;
         shouldShowCursor = true; // Toujours visible quand on relâche le bouton
       }
       lastButtonState = buttonState;
       displayNeedsUpdate = true;
     }
   }
-  
-  // Lecture du potentiomètre (10 fois par seconde = tous les 4 cycles)
+    // Lecture du potentiomètre (10 fois par seconde = tous les 4 cycles)
   if (periodicCounter % 4 == 0) {
-    if (digitalRead(buttonPin) == HIGH) {
+    if (digitalRead(BUTTON_PIN) == HIGH) {
       // Lire la valeur actuelle du potentiomètre
-      int newPotValue = analogRead(potPin);
+      int newPotValue = analogRead(POT_PIN);
       
       // Ne mettre à jour que si la valeur a suffisamment changé (évite les micro-variations)
-      if (abs(newPotValue - potValue) > 5) {
-        potValue = newPotValue;
-        int y = map(potValue, 0, 1024, 0, MATRIX_HEIGHT - 1);
+      if (abs(newPotValue - cursor.potValue) > 5) {
+        cursor.potValue = newPotValue;
+        int y = map(cursor.potValue, 0, 1024, 0, MATRIX_HEIGHT - 1);
         if (y < 0) y = 0;
         if (y > MATRIX_HEIGHT - 2) y = MATRIX_HEIGHT - 2;
         
         // N'actualiser que si la position a réellement changé
-        if (cursorY != (uint8_t)y) {
-          cursorY = (uint8_t)y;
+        if (cursor.y != (uint8_t)y) {
+          cursor.y = (uint8_t)y;
           displayNeedsUpdate = true;
         }
       }
     }
   }
-  
-  // Gestion du clignotement du curseur (5 fois par seconde = tous les 8 cycles)
+    // Gestion du clignotement du curseur (5 fois par seconde = tous les 8 cycles)
   if (periodicCounter % 8 == 0) {
-    if (cursorBlinking) {
+    if (cursor.state == CURSOR_STATE_BLINKING) {
       shouldShowCursor = !shouldShowCursor; // Inverser l'état d'affichage du curseur
       displayNeedsUpdate = true;
     } else if (!shouldShowCursor) {
@@ -856,11 +800,11 @@ void periodicFunction() {
   }
   
   // Déplacement du curseur (tous les cycles, mais progressif)
-  if (cursorY_displayed < cursorY) {
-    cursorY_displayed++;
+  if (cursor.yDisplayed < cursor.y) {
+    cursor.yDisplayed++;
     displayNeedsUpdate = true;
-  } else if (cursorY_displayed > cursorY) {
-    cursorY_displayed--;
+  } else if (cursor.yDisplayed > cursor.y) {
+    cursor.yDisplayed--;
     displayNeedsUpdate = true;
   }
   
@@ -947,10 +891,11 @@ void periodicFunction() {
 void loop() {
   // Variables pour détecter les changements
   static uint32_t lastAudioUpdate = 0;
+  static bool prevShouldShowCursor = shouldShowCursor;
   uint32_t currentTime = periodicCounter * TIMER_PERIOD / 1000; // Temps basé sur le compteur sans utiliser millis()
   
   bool cursorStateChanged = (shouldShowCursor != prevShouldShowCursor);
-  bool cursorPositionChanged = (cursorY_displayed != cursorY_last);
+  bool cursorPositionChanged = (cursor.yDisplayed != cursor.yLast);
   // Phase 1 : Mettre à jour les blocs si nécessaire (sans affichage)
   bool anyBlockMoved = false;
   for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
@@ -987,21 +932,20 @@ void loop() {
   lastAudioUpdate = currentTime;
   
   // Mise à jour de l'affichage de manière ciblée
-  
-  // Mise à jour du curseur si nécessaire
+    // Mise à jour du curseur si nécessaire
   if (cursorStateChanged || cursorPositionChanged) {
     // Effacer l'ancien curseur seulement s'il était visible
     if (prevShouldShowCursor) {
-      eraseCursor(cursorY_last);
+      eraseCursor(cursor.yLast);
     }
     
     // Dessiner le nouveau curseur s'il doit être visible
     if (shouldShowCursor) {
-      drawCursor(cursorY_displayed);
+      drawCursor(cursor.yDisplayed);
     }
     
     // Mettre à jour les variables d'état
-    cursorY_last = cursorY_displayed;
+    cursor.yLast = cursor.yDisplayed;
     prevShouldShowCursor = shouldShowCursor;
   }
     // Mise à jour des blocs - seulement effacer et redessiner les pixels modifiés
