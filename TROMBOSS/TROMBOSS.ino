@@ -31,6 +31,9 @@ uint8_t blockMoveCycles = BLOCK_MOVE_CYCLES_LEVEL_6;
 // Variable principale de l'état du jeu
 GameState gameState;
 
+// Variable de score
+Score gameScore;
+
 // Fonction pour obtenir le nombre de cycles selon le niveau de difficulté
 uint8_t getDifficultyBlockMoveCycles(uint8_t level) {
   switch (level) {
@@ -286,9 +289,9 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
     blocks[blockIndex].y = posY;
     blocks[blockIndex].length = length;
     blocks[blockIndex].color = BLOCK_COLOR;  // Utilisation de la couleur définie
-    blocks[blockIndex].active = 1;
-    blocks[blockIndex].frequency = note.frequency;
+    blocks[blockIndex].active = 1;    blocks[blockIndex].frequency = note.frequency;
     blocks[blockIndex].needsUpdate = 0; // Initialement, pas besoin de mise à jour
+    blocks[blockIndex].hitPixels = 0;   // Aucun pixel touché initialement
     blockNotePlaying[blockIndex] = false;
     
     #if DEBUG_SERIAL //suivi des blocs créés
@@ -630,23 +633,22 @@ void restoreGreenColumn(uint8_t x, uint8_t y) {
 void initGameState() {
   gameState.etat = GAME_STATE_MENU;
   gameState.level = 1;
-  gameState.score = 0;
   gameState.timeStart = millis();
   gameState.timeElapsed = 0;
-  gameState.lives = 3;
-  gameState.blocksHit = 0;
-  gameState.blocksMissed = 0;
   gameState.gameOver = false;
   gameState.pauseGame = false;
+  
+  // Initialiser le score
+  initScore();
   
   // Réinitialiser les variables de musique
   songPosition = 0;
   currentSongPart = 0;
   songFinished = 0;
-  
-  // Désactiver tous les blocs
+    // Désactiver tous les blocs
   for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
     blocks[i].active = 0;
+    blocks[i].hitPixels = 0;  // Réinitialiser les pixels touchés
     blockNotePlaying[i] = false;
   }
   
@@ -686,20 +688,21 @@ void handleMenuState() {
 // Gestion de l'état de jeu (niveau)
 void handleLevelState() {
   static bool levelInitialized = false;
-  
-  if (!levelInitialized) {
-    // Initialiser le niveau
+    if (!levelInitialized) {    // Initialiser le niveau
     setDifficultyLevel(gameState.level);
     gameState.timeStart = millis();
+    
+    // Réinitialiser le score pour le nouveau niveau
+    initScore();
     
     // Réinitialiser les variables de jeu
     songPosition = 0;
     currentSongPart = 0;
     songFinished = 0;
-    
-    // Effacer les blocs existants
+      // Effacer les blocs existants
     for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
       blocks[i].active = 0;
+      blocks[i].hitPixels = 0;  // Réinitialiser les pixels touchés
     }
     
     // Affichage initial
@@ -731,23 +734,17 @@ void handleLevelState() {
         break;
       }
     }
-    
-    if (allBlocksInactive) {
-      // Niveau terminé - évaluer le score
-      if (gameState.score >= 80) {
+      if (allBlocksInactive) {
+      // Niveau terminé - évaluer le score transformé
+      if (gameScore.transformed >= 80) {
         changeGameState(GAME_STATE_WIN);
       } else {
         changeGameState(GAME_STATE_LOSE);
       }
-      levelInitialized = false;
-    }
+      levelInitialized = false;    }
   }
   
-  // Condition de défaite (trop de vies perdues)
-  if (gameState.lives <= 0) {
-    changeGameState(GAME_STATE_LOSE);
-    levelInitialized = false;
-  }
+  // Note: Les conditions de défaite seront définies plus tard selon les besoins du jeu
 }
 
 // Gestion de l'état de victoire
@@ -762,7 +759,12 @@ void handleWinState() {
 #if DEBUG_SERIAL
     Serial.println("=== VICTOIRE ===");
     Serial.print("Score: ");
-    Serial.println(gameState.score);
+    Serial.print(gameScore.current);
+    Serial.print("/");
+    Serial.print(gameScore.maxPossible);
+    Serial.print(" (");
+    Serial.print(gameScore.transformed);
+    Serial.println("%)");
     Serial.print("Temps: ");
     Serial.print(gameState.timeElapsed / 1000);
     Serial.println(" secondes");
@@ -798,7 +800,12 @@ void handleLoseState() {
 #if DEBUG_SERIAL
     Serial.println("=== DÉFAITE ===");
     Serial.print("Score final: ");
-    Serial.println(gameState.score);
+    Serial.print(gameScore.current);
+    Serial.print("/");
+    Serial.print(gameScore.maxPossible);
+    Serial.print(" (");
+    Serial.print(gameScore.transformed);
+    Serial.println("%)");
 #endif
     
     loseDisplayTime = millis();
@@ -825,6 +832,185 @@ void changeGameState(uint8_t newState) {
       case GAME_STATE_WIN: Serial.println("VICTOIRE"); break;
       case GAME_STATE_LOSE: Serial.println("DÉFAITE"); break;
     }
+#endif
+  }
+}
+
+// ===== FONCTIONS DE GESTION DU SCORE =====
+
+// Initialisation du score
+void initScore() {
+  gameScore.current = 0;
+  gameScore.maxPossible = 0;
+  gameScore.transformed = 0;
+  
+#if DEBUG_SERIAL
+  Serial.println("Score initialisé");
+#endif
+}
+
+// Ajouter des points au score actuel
+void addScore(uint16_t points) {
+  gameScore.current += points;
+  updateTransformedScore();
+  
+#if DEBUG_SERIAL
+  Serial.print("Score +");
+  Serial.print(points);
+  Serial.print(" = ");
+  Serial.print(gameScore.current);
+  Serial.print("/");
+  Serial.print(gameScore.maxPossible);
+  Serial.print(" (");
+  Serial.print(gameScore.transformed);
+  Serial.println("%)");
+#endif
+}
+
+// Ajouter des points au score maximum possible
+void addMaxScore(uint16_t points) {
+  gameScore.maxPossible += points;
+  updateTransformedScore();
+  
+#if DEBUG_SERIAL
+  Serial.print("Score max +");
+  Serial.print(points);
+  Serial.print(" = ");
+  Serial.print(gameScore.maxPossible);
+  Serial.print(" (transformé: ");
+  Serial.print(gameScore.transformed);
+  Serial.println("%)");
+#endif
+}
+
+// Calculer et mettre à jour le score transformé
+void updateTransformedScore() {
+  if (gameScore.maxPossible > 0) {
+    // Calcul du pourcentage arrondi vers le bas
+    uint32_t percentage = ((uint32_t)gameScore.current * 100) / gameScore.maxPossible;
+    gameScore.transformed = (uint8_t)percentage;
+  } else {
+    gameScore.transformed = 0;
+  }
+}
+
+// ===== FONCTIONS DE DÉTECTION DE COLLISION =====
+
+// Calculer quels pixels du bloc sont touchés par le curseur
+uint8_t getBlockPixelsHitByCursor(uint8_t blockIndex) {
+  if (!blocks[blockIndex].active) {
+    return 0;
+  }
+  
+  Block& block = blocks[blockIndex];
+  uint8_t pixelsHit = 0;
+  
+  // Position du curseur (2x2 pixels sur colonnes 2-3)
+  uint8_t cursorX1 = 2;
+  uint8_t cursorX2 = 3;
+  uint8_t cursorY1 = cursor.yDisplayed;
+  uint8_t cursorY2 = cursor.yDisplayed + 1;
+  
+  // Vérifier si le bloc intersecte avec la zone du curseur
+  int16_t blockX1 = block.x;
+  int16_t blockX2 = block.x + block.length - 1;
+  uint8_t blockY1 = block.y;
+  uint8_t blockY2 = block.y + 1; // BLOCK_HEIGHT = 2
+  
+  // Vérifier l'intersection en X (bloc doit toucher colonnes 2 ou 3)
+  bool xIntersect = (blockX1 <= cursorX2 && blockX2 >= cursorX1);
+  
+  // Vérifier l'intersection en Y
+  bool yIntersect = (blockY1 <= cursorY2 && blockY2 >= cursorY1);
+  
+  if (!xIntersect || !yIntersect) {
+    return 0; // Pas d'intersection
+  }
+  
+  // Calculer les pixels individuels touchés
+  // Chaque bloc fait 2 pixels de haut et "length" pixels de large
+  // On encode les pixels touchés dans un masque de bits
+  for (uint8_t pixelY = 0; pixelY < BLOCK_HEIGHT; pixelY++) {
+    uint8_t absoluteY = block.y + pixelY;
+    
+    // Ce pixel Y intersecte-t-il avec le curseur ?
+    if (absoluteY >= cursorY1 && absoluteY <= cursorY2) {
+      // Vérifier chaque pixel X du bloc
+      for (uint8_t pixelX = 0; pixelX < block.length && pixelX < 16; pixelX++) { // Limite à 16 pour le masque
+        int16_t absoluteX = block.x + pixelX;
+        
+        // Ce pixel X intersecte-t-il avec le curseur (colonnes 2-3) ?
+        if (absoluteX >= cursorX1 && absoluteX <= cursorX2) {
+          // Calculer l'index du pixel dans le masque (row-major order)
+          uint8_t pixelIndex = pixelY * block.length + pixelX;
+          
+          // Vérifier que l'index ne dépasse pas 15 (masque 16 bits)
+          if (pixelIndex < 16) {
+            pixelsHit |= (1 << pixelIndex);
+          }
+        }
+      }
+    }
+  }
+  
+#if DEBUG_SERIAL
+  if (pixelsHit > 0) {
+    Serial.print("Bloc ");
+    Serial.print(blockIndex);
+    Serial.print(" - Pixels touchés: ");
+    Serial.print(pixelsHit, BIN);
+    Serial.print(" (");
+    Serial.print(__builtin_popcount(pixelsHit));
+    Serial.println(" pixels)");
+  }
+#endif
+  
+  return pixelsHit;
+}
+
+// Vérifier si le curseur touche un bloc et marquer les points
+void checkCursorCollision() {
+  // Vérifier seulement si le curseur clignote (bouton pressé)
+  if (cursor.state != CURSOR_STATE_BLINKING) {
+    return;
+  }
+  
+  // Parcourir tous les blocs actifs
+  for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+    if (!blocks[i].active) {
+      continue;
+    }
+    
+    // Calculer quels pixels du bloc sont touchés par le curseur
+    uint8_t pixelsHit = getBlockPixelsHitByCursor(i);
+    
+    if (pixelsHit == 0) {
+      continue; // Pas de collision pour ce bloc
+    }
+    
+    // Calculer quels sont les nouveaux pixels (pas encore touchés)
+    uint8_t newPixelsHit = pixelsHit & (~blocks[i].hitPixels);
+    
+    if (newPixelsHit == 0) {
+      continue; // Tous ces pixels ont déjà été comptés
+    }
+    
+    // Compter le nombre de nouveaux pixels touchés
+    uint8_t newPixelCount = __builtin_popcount(newPixelsHit);
+    
+    // Marquer ces pixels comme touchés
+    blocks[i].hitPixels |= newPixelsHit;
+    
+    // Ajouter les points au score (1 point par pixel)
+    addScore(newPixelCount);
+    
+#if DEBUG_SERIAL
+    Serial.print("COLLISION! Bloc ");
+    Serial.print(i);
+    Serial.print(" - Nouveaux pixels: ");
+    Serial.print(newPixelCount);
+    Serial.print(" - Score: +");
+    Serial.println(newPixelCount);
 #endif
   }
 }
@@ -856,12 +1042,12 @@ void setup() {
   cursor.color = CURSOR_COLOR;
   cursor.potValue = 0;
   cursor.lastBlinkTime = 0;
-  
-  // Initialiser les blocs
+    // Initialiser les blocs
   for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
     blocks[i].active = 0;
     blocks[i].color = BLOCK_COLOR;
     blocks[i].needsUpdate = 0;
+    blocks[i].hitPixels = 0;  // Aucun pixel touché initialement
     blockNotePlaying[i] = false;
   }
   
@@ -954,12 +1140,16 @@ void periodicFunction() {
         }
       }
     }
-  }
-    // Gestion du clignotement du curseur (5 fois par seconde = tous les 8 cycles)
+  }    // Gestion du clignotement du curseur (5 fois par seconde = tous les 8 cycles)
   if (periodicCounter % 8 == 0) {
     if (cursor.state == CURSOR_STATE_BLINKING) {
       shouldShowCursor = !shouldShowCursor; // Inverser l'état d'affichage du curseur
       displayNeedsUpdate = true;
+      
+      // Vérifier les collisions pendant le clignotement (seulement dans l'état LEVEL)
+      if (gameState.etat == GAME_STATE_LEVEL) {
+        checkCursorCollision();
+      }
     } else if (!shouldShowCursor) {
       shouldShowCursor = true; // S'assurer que le curseur est visible si pas en mode clignotement
       displayNeedsUpdate = true;
@@ -1011,15 +1201,33 @@ void periodicFunction() {
         blockNotePlaying[i] = false;
       }
     }
-    
-    // Effectuer le déplacement des blocs (Phase 1 - calculs uniquement)
+      // Effectuer le déplacement des blocs (Phase 1 - calculs uniquement)
     for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
       if (blocks[i].active) {
         // Sauvegarder l'ancienne position avant de mettre à jour
         blocks[i].oldX = blocks[i].x;
         
         // Déplacer le bloc
-        blocks[i].x--;
+        blocks[i].x--;        // Nouvelle logique : ajouter 2 pixels au score max pour chaque colonne qui passe x=3
+        // (c'est-à-dire quand chaque colonne passe de x=4 à x=3)
+        int16_t oldEnd = blocks[i].oldX + blocks[i].length - 1;  // Dernière colonne à l'ancienne position
+        int16_t newEnd = blocks[i].x + blocks[i].length - 1;     // Dernière colonne à la nouvelle position
+        
+        // Pour chaque colonne du bloc, vérifier si elle vient de passer x=3
+        for (int16_t col = blocks[i].oldX; col <= oldEnd; col++) {
+          // Cette colonne était-elle à x=4 et est maintenant à x=3 ?
+          int16_t newCol = col - 1; // Position après déplacement
+          if (col == 4 && newCol == 3) {
+            // Cette colonne vient de passer la deuxième colonne verte (x=3)
+            // Ajouter 2 pixels (hauteur du bloc = 2) au score maximum
+            addMaxScore(2);
+#if DEBUG_SERIAL
+            Serial.print("Colonne passée x=3 pour bloc ");
+            Serial.print(i);
+            Serial.println(" - Score max +2");
+#endif
+          }
+        }
         
         // Vérifier si le bloc est complètement sorti de l'écran
         if (blocks[i].x + blocks[i].length < -1) {
@@ -1068,7 +1276,6 @@ void periodicFunction() {
   }
 }
 
-// Fonction pour la logique de niveau (ancienne loop)
 void handleLevelLoop() {
   // Variables pour détecter les changements
   static uint32_t lastAudioUpdate = 0;

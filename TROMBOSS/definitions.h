@@ -60,15 +60,12 @@
 #define DEFAULT_DIFFICULTY_LEVEL 1
 
 // Nombre de cycles entre chaque déplacement de bloc selon le niveau
-// Niveau 1 (facile) : 40 cycles = 1 seconde
-// Niveau 5 (moyen) : 20 cycles = 0.5 seconde  
-// Niveau 9 (difficile) : 8 cycles = 0.2 seconde
 #define BLOCK_MOVE_CYCLES_LEVEL_1 40
 #define BLOCK_MOVE_CYCLES_LEVEL_2 35
 #define BLOCK_MOVE_CYCLES_LEVEL_3 30
 #define BLOCK_MOVE_CYCLES_LEVEL_4 25
 #define BLOCK_MOVE_CYCLES_LEVEL_5 20
-#define BLOCK_MOVE_CYCLES_LEVEL_6 16
+#define BLOCK_MOVE_CYCLES_LEVEL_6 15
 #define BLOCK_MOVE_CYCLES_LEVEL_7 12
 #define BLOCK_MOVE_CYCLES_LEVEL_8 10
 #define BLOCK_MOVE_CYCLES_LEVEL_9 8
@@ -83,6 +80,7 @@ typedef struct {
   uint16_t frequency;     // Fréquence de la note associée
   uint8_t needsUpdate : 1; // Flag pour indiquer si le bloc doit être mis à jour
   int16_t oldX;           // Ancienne position X pour effacer
+  uint16_t hitPixels;     // Masque de bits pour les pixels déjà touchés (max 16 pixels)
 } Block;
 
 // ===== STRUCTURE CURSEUR =====
@@ -97,16 +95,19 @@ typedef struct {
   uint32_t lastBlinkTime; // Dernier temps de clignotement
 } Cursor;
 
+// ===== STRUCTURE SCORE =====
+typedef struct {
+  uint16_t current;         // Score actuel du joueur
+  uint16_t maxPossible;     // Score maximum actuellement atteignable (points qui ont passé la ligne)
+  uint8_t transformed;      // Score transformé en pourcentage (0-100)
+} Score;
+
 // ===== STRUCTURE JEU =====
 typedef struct {
   uint8_t etat;           // État du jeu: GAME_STATE_MENU, GAME_STATE_LEVEL, GAME_STATE_WIN, GAME_STATE_LOSE
   uint8_t level;          // Niveau de difficulté (1-9)
-  uint16_t score;         // Score du joueur
   uint32_t timeStart;     // Temps de début de niveau (en ms)
   uint32_t timeElapsed;   // Temps écoulé depuis le début
-  uint8_t lives;          // Nombre de vies restantes
-  uint8_t blocksHit;      // Nombre de blocs touchés avec succès
-  uint8_t blocksMissed;   // Nombre de blocs ratés
   bool gameOver;          // Flag de fin de jeu
   bool pauseGame;         // Flag de pause
 } GameState;
@@ -120,6 +121,9 @@ extern volatile bool shouldShowCursor;
 
 // Variable principale de l'état du jeu
 extern GameState gameState;
+
+// Variable de score
+extern Score gameScore;
 
 // Variables pour la musique
 extern uint8_t songPosition;
@@ -155,5 +159,21 @@ void handleWinState();
 void handleLoseState();
 // Fonction pour changer l'état du jeu
 void changeGameState(uint8_t newState);
+
+// ===== FONCTIONS DE GESTION DU SCORE =====
+// Initialisation du score
+void initScore();
+// Ajouter des points au score actuel
+void addScore(uint16_t points);
+// Ajouter des points au score maximum possible
+void addMaxScore(uint16_t points);
+// Calculer et mettre à jour le score transformé
+void updateTransformedScore();
+
+// ===== FONCTIONS DE DÉTECTION DE COLLISION =====
+// Vérifier si le curseur touche un bloc et marquer les points
+void checkCursorCollision();
+// Calculer quels pixels du bloc sont touchés par le curseur
+uint8_t getBlockPixelsHitByCursor(uint8_t blockIndex);
 
 #endif // DEFINITIONS_H
