@@ -57,9 +57,9 @@ void setDifficultyLevel(uint8_t level) {
     blockMoveCycles = getDifficultyBlockMoveCycles(level);
     
 #if DEBUG_SERIAL
-    Serial.print("Niveau de difficulté: ");
+    Serial.print("Lvl:");
     Serial.print(level);
-    Serial.print(" - Cycles de déplacement: ");
+    Serial.print(" Cyc:");
     Serial.println(blockMoveCycles);
 #endif
   }
@@ -126,9 +126,9 @@ uint8_t getPositionYFromFrequency(uint16_t frequency) {
   }
   
 #if DEBUG_SERIAL
-  Serial.print("Frequence: ");
+  Serial.print("F:");
   Serial.print(frequency);
-  Serial.print(" -> Position Y: ");
+  Serial.print(" Y:");
   Serial.println(position);
 #endif
 
@@ -184,7 +184,7 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
   // Si nous avons déjà beaucoup de blocs actifs, limiter la création
   if (activeCount >= MAX_BLOCKS/2) {
 #if DEBUG_SERIAL
-    Serial.println("Trop de blocs actifs, création différée");
+    Serial.println("Max blocs");
 #endif
     return;
   }
@@ -200,7 +200,7 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
   
   if (blockIndex == -1) {
 #if DEBUG_SERIAL
-    Serial.println("Pas d'emplacement libre pour nouveau bloc");
+    Serial.println("Pas libre");
 #endif
     return;
   }
@@ -216,7 +216,7 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
   // Éviter la création si la même note est déjà active
   if (note.frequency == lastNoteFrequency && lastNoteStillActive) {
 #if DEBUG_SERIAL
-    Serial.println("Note déjà active, création évitée");
+    Serial.println("Note active");
 #endif
     return;
   }
@@ -238,7 +238,7 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
   
   if (positionConflict) {
 #if DEBUG_SERIAL
-    Serial.println("Conflit de position Y détecté, création annulée");
+    Serial.println("Conflit Y");
 #endif
     return; // Annuler la création plutôt que de chercher une position alternative
   }
@@ -259,10 +259,9 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
       break;
     }
   }
-  
-  if (columnOccupied) {
+    if (columnOccupied) {
 #if DEBUG_SERIAL
-    Serial.println("Colonne déjà occupée, attente avant création du bloc");
+    Serial.println("Col occupée");
 #endif
     // Ne pas créer ce bloc maintenant, on attendra un moment plus propice
     return;
@@ -293,13 +292,12 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
     blocks[blockIndex].needsUpdate = 0; // Initialement, pas besoin de mise à jour
     blocks[blockIndex].hitPixels = 0;   // Aucun pixel touché initialement
     blockNotePlaying[blockIndex] = false;
-    
-    #if DEBUG_SERIAL //suivi des blocs créés
-    Serial.print("Nouveau bloc: x=");
+      #if DEBUG_SERIAL //suivi des blocs créés
+    Serial.print("B x=");
     Serial.print(startX);
-    Serial.print(", y=");
+    Serial.print(" y=");
     Serial.print(posY);
-    Serial.print(", len=");
+    Serial.print(" l=");
     Serial.println(length);
     #endif
   }
@@ -380,11 +378,10 @@ void drawBlock(Block block) {
 void nextNote() {
   const MusicNote* currentSong;
   uint8_t currentSongSize;
-  
-  // Vérification pour éviter la création multiple de la même note
+    // Vérification pour éviter la création multiple de la même note
   if (songPosition == lastNotePosition && currentSongPart == currentSongPart) {
 #if DEBUG_SERIAL
-    Serial.println("Note déjà créée, évitement de duplication");
+    Serial.println("Note dupliquée");
 #endif
     return;
   }
@@ -653,7 +650,7 @@ void initGameState() {
   }
   
 #if DEBUG_SERIAL
-  Serial.println("État du jeu initialisé");
+  Serial.println("État init");
 #endif
 }
 
@@ -667,8 +664,8 @@ void handleMenuState() {
     // TODO: Implémenter l'interface de sélection de niveau
     
 #if DEBUG_SERIAL
-    Serial.println("=== MENU PRINCIPAL ===");
-    Serial.println("Appuyez sur le bouton pour commencer");
+    Serial.println("=== MENU ===");
+    Serial.println("Bouton pour start");
 #endif
     menuInitialized = true;
   }
@@ -711,9 +708,9 @@ void handleLevelState() {
     drawCursor(cursor.yDisplayed);
     
 #if DEBUG_SERIAL
-    Serial.print("=== NIVEAU ");
+    Serial.print("=== NIV ");
     Serial.print(gameState.level);
-    Serial.println(" DÉMARRÉ ===");
+    Serial.println(" START ===");
 #endif
     levelInitialized = true;
   }
@@ -765,9 +762,9 @@ void handleWinState() {
     Serial.print(" (");
     Serial.print(gameScore.transformed);
     Serial.println("%)");
-    Serial.print("Temps: ");
+    Serial.print("T: ");
     Serial.print(gameState.timeElapsed / 1000);
-    Serial.println(" secondes");
+    Serial.println(" sec");
 #endif
     
     winDisplayTime = millis();
@@ -799,7 +796,7 @@ void handleLoseState() {
     
 #if DEBUG_SERIAL
     Serial.println("=== DÉFAITE ===");
-    Serial.print("Score final: ");
+    Serial.print("Score fin: ");
     Serial.print(gameScore.current);
     Serial.print("/");
     Serial.print(gameScore.maxPossible);
@@ -825,12 +822,12 @@ void changeGameState(uint8_t newState) {
     gameState.etat = newState;
     
 #if DEBUG_SERIAL
-    Serial.print("Changement d'état vers: ");
+    Serial.print("État: ");
     switch (newState) {
       case GAME_STATE_MENU: Serial.println("MENU"); break;
-      case GAME_STATE_LEVEL: Serial.println("NIVEAU"); break;
-      case GAME_STATE_WIN: Serial.println("VICTOIRE"); break;
-      case GAME_STATE_LOSE: Serial.println("DÉFAITE"); break;
+      case GAME_STATE_LEVEL: Serial.println("NIV"); break;
+      case GAME_STATE_WIN: Serial.println("WIN"); break;
+      case GAME_STATE_LOSE: Serial.println("LOSE"); break;
     }
 #endif
   }
@@ -845,7 +842,7 @@ void initScore() {
   gameScore.transformed = 0;
   
 #if DEBUG_SERIAL
-  Serial.println("Score initialisé");
+  Serial.println("Score init");
 #endif
 }
 
@@ -873,11 +870,11 @@ void addMaxScore(uint16_t points) {
   updateTransformedScore();
   
 #if DEBUG_SERIAL
-  Serial.print("Score max +");
+  Serial.print("Smax +");
   Serial.print(points);
   Serial.print(" = ");
   Serial.print(gameScore.maxPossible);
-  Serial.print(" (transformé: ");
+  Serial.print(" (tr: ");
   Serial.print(gameScore.transformed);
   Serial.println("%)");
 #endif
@@ -957,7 +954,7 @@ uint8_t getBlockPixelsHitByCursor(uint8_t blockIndex) {
   if (pixelsHit > 0) {
     Serial.print("Bloc ");
     Serial.print(blockIndex);
-    Serial.print(" - Pixels touchés: ");
+    Serial.print(" - Pix: ");
     Serial.print(pixelsHit, BIN);
     Serial.print(" (");
     Serial.print(__builtin_popcount(pixelsHit));
@@ -1005,11 +1002,11 @@ void checkCursorCollision() {
     addScore(newPixelCount);
     
 #if DEBUG_SERIAL
-    Serial.print("COLLISION! Bloc ");
+    Serial.print("COL! Bloc ");
     Serial.print(i);
-    Serial.print(" - Nouveaux pixels: ");
+    Serial.print(" - Nouv: ");
     Serial.print(newPixelCount);
-    Serial.print(" - Score: +");
+    Serial.print(" - Sc: +");
     Serial.println(newPixelCount);
 #endif
   }
@@ -1019,7 +1016,7 @@ void setup() {
   // Réactiver Serial pour le débogage
 #if DEBUG_SERIAL
   Serial.begin(9600);
-  Serial.println("=== TROMBOSS - SYSTÈME DE JEU ===");
+  Serial.println("=== TROMBOSS ===");
 #endif
   
   // Initialisation de la matrice LED
@@ -1222,9 +1219,9 @@ void periodicFunction() {
             // Ajouter 2 pixels (hauteur du bloc = 2) au score maximum
             addMaxScore(2);
 #if DEBUG_SERIAL
-            Serial.print("Colonne passée x=3 pour bloc ");
+            Serial.print("Col x=3 bloc ");
             Serial.print(i);
-            Serial.println(" - Score max +2");
+            Serial.println(" - Smax +2");
 #endif
           }
         }
@@ -1391,7 +1388,7 @@ void loop() {
       
     default:
       // État invalide, retourner au menu
-      Serial.println("État de jeu invalide, retour au menu");
+      Serial.println("État invalide");
       changeGameState(GAME_STATE_MENU);
       break;
   }
