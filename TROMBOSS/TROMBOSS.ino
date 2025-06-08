@@ -24,7 +24,43 @@ bool lastNoteStillActive = false;
 bool blockNotePlaying[MAX_BLOCKS] = {0};
 uint8_t lastNotePosition = 255;
 
+// Variables pour le système de niveaux
+uint8_t currentDifficultyLevel = DEFAULT_DIFFICULTY_LEVEL;
+uint8_t blockMoveCycles = BLOCK_MOVE_CYCLES_LEVEL_6;
 
+// Variable principale de l'état du jeu
+GameState gameState;
+
+// Fonction pour obtenir le nombre de cycles selon le niveau de difficulté
+uint8_t getDifficultyBlockMoveCycles(uint8_t level) {
+  switch (level) {
+    case 1: return BLOCK_MOVE_CYCLES_LEVEL_1;
+    case 2: return BLOCK_MOVE_CYCLES_LEVEL_2;
+    case 3: return BLOCK_MOVE_CYCLES_LEVEL_3;
+    case 4: return BLOCK_MOVE_CYCLES_LEVEL_4;
+    case 5: return BLOCK_MOVE_CYCLES_LEVEL_5;
+    case 6: return BLOCK_MOVE_CYCLES_LEVEL_6;
+    case 7: return BLOCK_MOVE_CYCLES_LEVEL_7;
+    case 8: return BLOCK_MOVE_CYCLES_LEVEL_8;
+    case 9: return BLOCK_MOVE_CYCLES_LEVEL_9;
+    default: return BLOCK_MOVE_CYCLES_LEVEL_1; // Par défaut niveau 1
+  }
+}
+
+// Fonction pour définir le niveau de difficulté
+void setDifficultyLevel(uint8_t level) {
+  if (level >= MIN_DIFFICULTY_LEVEL && level <= MAX_DIFFICULTY_LEVEL) {
+    currentDifficultyLevel = level;
+    blockMoveCycles = getDifficultyBlockMoveCycles(level);
+    
+#if DEBUG_SERIAL
+    Serial.print("Niveau de difficulté: ");
+    Serial.print(level);
+    Serial.print(" - Cycles de déplacement: ");
+    Serial.println(blockMoveCycles);
+#endif
+  }
+}
 
 // Fonction pour déterminer la position Y en fonction de la fréquence
 uint8_t getPositionYFromFrequency(uint16_t frequency) {
@@ -588,11 +624,216 @@ void restoreGreenColumn(uint8_t x, uint8_t y) {
   }
 }
 
+// ===== FONCTIONS DE GESTION DES ÉTATS DU JEU =====
+
+// Initialisation de l'état du jeu
+void initGameState() {
+  gameState.etat = GAME_STATE_MENU;
+  gameState.level = 1;
+  gameState.score = 0;
+  gameState.timeStart = millis();
+  gameState.timeElapsed = 0;
+  gameState.lives = 3;
+  gameState.blocksHit = 0;
+  gameState.blocksMissed = 0;
+  gameState.gameOver = false;
+  gameState.pauseGame = false;
+  
+  // Réinitialiser les variables de musique
+  songPosition = 0;
+  currentSongPart = 0;
+  songFinished = 0;
+  
+  // Désactiver tous les blocs
+  for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+    blocks[i].active = 0;
+    blockNotePlaying[i] = false;
+  }
+  
+#if DEBUG_SERIAL
+  Serial.println("État du jeu initialisé");
+#endif
+}
+
+// Gestion du menu principal
+void handleMenuState() {
+  static bool menuInitialized = false;
+  
+  if (!menuInitialized) {
+    ht1632_clear();
+    // Affichage du menu (simplifié pour l'instant)
+    // TODO: Implémenter l'interface de sélection de niveau
+    
+#if DEBUG_SERIAL
+    Serial.println("=== MENU PRINCIPAL ===");
+    Serial.println("Appuyez sur le bouton pour commencer");
+#endif
+    menuInitialized = true;
+  }
+  
+  // Lecture du bouton pour démarrer le jeu
+  static bool lastButtonState = HIGH;
+  bool buttonState = digitalRead(BUTTON_PIN);
+  
+  if (buttonState == LOW && lastButtonState == HIGH) {
+    // Bouton pressé, démarrer le jeu
+    changeGameState(GAME_STATE_LEVEL);
+    menuInitialized = false;
+  }
+  lastButtonState = buttonState;
+}
+
+// Gestion de l'état de jeu (niveau)
+void handleLevelState() {
+  static bool levelInitialized = false;
+  
+  if (!levelInitialized) {
+    // Initialiser le niveau
+    setDifficultyLevel(gameState.level);
+    gameState.timeStart = millis();
+    
+    // Réinitialiser les variables de jeu
+    songPosition = 0;
+    currentSongPart = 0;
+    songFinished = 0;
+    
+    // Effacer les blocs existants
+    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+      blocks[i].active = 0;
+    }
+    
+    // Affichage initial
+    ht1632_clear();
+    drawStaticColumnsExceptCursorAndBlocks();
+    drawCursor(cursor.yDisplayed);
+    
+#if DEBUG_SERIAL
+    Serial.print("=== NIVEAU ");
+    Serial.print(gameState.level);
+    Serial.println(" DÉMARRÉ ===");
+#endif
+    levelInitialized = true;
+  }
+  
+  // Mettre à jour le temps écoulé
+  gameState.timeElapsed = millis() - gameState.timeStart;
+  
+  // Logique de jeu existante (sera exécutée dans la fonction périodique)
+    // Appeler la logique de jeu principale
+  handleLevelLoop();
+  
+  // Conditions de fin de niveau
+  if (songFinished) {
+    bool allBlocksInactive = true;
+    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+      if (blocks[i].active) {
+        allBlocksInactive = false;
+        break;
+      }
+    }
+    
+    if (allBlocksInactive) {
+      // Niveau terminé - évaluer le score
+      if (gameState.score >= 80) {
+        changeGameState(GAME_STATE_WIN);
+      } else {
+        changeGameState(GAME_STATE_LOSE);
+      }
+      levelInitialized = false;
+    }
+  }
+  
+  // Condition de défaite (trop de vies perdues)
+  if (gameState.lives <= 0) {
+    changeGameState(GAME_STATE_LOSE);
+    levelInitialized = false;
+  }
+}
+
+// Gestion de l'état de victoire
+void handleWinState() {
+  static bool winInitialized = false;
+  static uint32_t winDisplayTime = 0;
+  
+  if (!winInitialized) {
+    ht1632_clear();
+    // TODO: Affichage de victoire
+    
+#if DEBUG_SERIAL
+    Serial.println("=== VICTOIRE ===");
+    Serial.print("Score: ");
+    Serial.println(gameState.score);
+    Serial.print("Temps: ");
+    Serial.print(gameState.timeElapsed / 1000);
+    Serial.println(" secondes");
+#endif
+    
+    winDisplayTime = millis();
+    winInitialized = true;
+  }
+  
+  // Retourner au menu après 3 secondes
+  if (millis() - winDisplayTime > 3000) {
+    if (gameState.level < 9) {
+      // Passer au niveau suivant
+      gameState.level++;
+      changeGameState(GAME_STATE_LEVEL);
+    } else {
+      // Retourner au menu (jeu terminé)
+      changeGameState(GAME_STATE_MENU);
+    }
+    winInitialized = false;
+  }
+}
+
+// Gestion de l'état de défaite
+void handleLoseState() {
+  static bool loseInitialized = false;
+  static uint32_t loseDisplayTime = 0;
+  
+  if (!loseInitialized) {
+    ht1632_clear();
+    // TODO: Affichage de défaite
+    
+#if DEBUG_SERIAL
+    Serial.println("=== DÉFAITE ===");
+    Serial.print("Score final: ");
+    Serial.println(gameState.score);
+#endif
+    
+    loseDisplayTime = millis();
+    loseInitialized = true;
+  }
+  
+  // Retourner au menu après 3 secondes
+  if (millis() - loseDisplayTime > 3000) {
+    changeGameState(GAME_STATE_MENU);
+    loseInitialized = false;
+  }
+}
+
+// Fonction pour changer l'état du jeu
+void changeGameState(uint8_t newState) {
+  if (newState >= GAME_STATE_MENU && newState <= GAME_STATE_LOSE) {
+    gameState.etat = newState;
+    
+#if DEBUG_SERIAL
+    Serial.print("Changement d'état vers: ");
+    switch (newState) {
+      case GAME_STATE_MENU: Serial.println("MENU"); break;
+      case GAME_STATE_LEVEL: Serial.println("NIVEAU"); break;
+      case GAME_STATE_WIN: Serial.println("VICTOIRE"); break;
+      case GAME_STATE_LOSE: Serial.println("DÉFAITE"); break;
+    }
+#endif
+  }
+}
+
 void setup() {
   // Réactiver Serial pour le débogage
 #if DEBUG_SERIAL
   Serial.begin(9600);
-  Serial.println("Système initialisé avec débogage");
+  Serial.println("=== TROMBOSS - SYSTÈME DE JEU ===");
 #endif
   
   // Initialisation de la matrice LED
@@ -600,7 +841,10 @@ void setup() {
   ht1632_setup();
   setup7Seg();
   ht1632_clear();
-    // Configuration du bouton en entrée avec pull-up interne
+    // Initialiser l'état du jeu
+  initGameState();
+  
+  // Configuration du bouton en entrée avec pull-up interne
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   
   // Initialiser le curseur
@@ -616,22 +860,15 @@ void setup() {
   // Initialiser les blocs
   for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
     blocks[i].active = 0;
-    blocks[i].color = BLOCK_COLOR;  // Initialiser la couleur explicitement
-    blocks[i].needsUpdate = 0;      // Pas de mise à jour nécessaire au départ
+    blocks[i].color = BLOCK_COLOR;
+    blocks[i].needsUpdate = 0;
     blockNotePlaying[i] = false;
   }
-    // Initialiser les flags d'affichage
-  displayNeedsUpdate = true; // Forcer un premier affichage
-  shouldShowCursor = true;   // Curseur visible initialement
   
-  // Affichage initial de la matrice
-  ht1632_clear();
-  drawStaticColumnsExceptCursorAndBlocks();
-  drawCursor(cursor.yDisplayed);
-  
-  // Créer le premier bloc
-  nextNote();
-  
+  // Initialiser les flags d'affichage
+  displayNeedsUpdate = true;
+  shouldShowCursor = true;
+
 #if MUSIQUE
   pinMode(BUZZER_PIN, OUTPUT);
 #endif
@@ -641,6 +878,7 @@ void setup() {
   Timer1.attachInterrupt(periodicFunction);
   
   // Réinitialiser le compteur périodique
+  periodicCounter = 0;
   periodicCounter = 0;
 }
 
@@ -735,9 +973,9 @@ void periodicFunction() {
   } else if (cursor.yDisplayed > cursor.y) {
     cursor.yDisplayed--;
     displayNeedsUpdate = true;
-  }
-    // Déplacement des blocs (2 fois par seconde = tous les 20 cycles)
-  if (periodicCounter % 20 == 0) {
+  }  // Déplacement des blocs - fréquence selon le niveau de difficulté
+  // Seulement si on est dans l'état LEVEL
+  if (gameState.etat == GAME_STATE_LEVEL && periodicCounter % blockMoveCycles == 0) {
     // Déterminer le bloc prioritaire (le plus à gauche) qui occupe x=2 ou x=3
     int8_t blockToPlay = -1;
     int16_t minX = 1000;
@@ -795,9 +1033,9 @@ void periodicFunction() {
       }
     }
   }
-  
-  // Création de nouvelles notes (1 fois par seconde = tous les 40 cycles)
-  if (periodicCounter % 40 == 0) {
+    // Création de nouvelles notes (1 fois par seconde = tous les 40 cycles)
+  // Seulement si on est dans l'état LEVEL
+  if (gameState.etat == GAME_STATE_LEVEL && periodicCounter % 40 == 0) {
     if (!songFinished) {
       static bool noteCreationInProgress = false;
       
@@ -808,6 +1046,7 @@ void periodicFunction() {
         displayNeedsUpdate = true;
       }
     }
+  
     
     // Gestion de la fin de séquence musicale (toutes les 2 secondes = tous les 80 cycles)
     if (songFinished && periodicCounter % 80 == 0) {
@@ -829,7 +1068,8 @@ void periodicFunction() {
   }
 }
 
-void loop() {
+// Fonction pour la logique de niveau (ancienne loop)
+void handleLevelLoop() {
   // Variables pour détecter les changements
   static uint32_t lastAudioUpdate = 0;
   static bool prevShouldShowCursor = shouldShowCursor;
@@ -862,7 +1102,7 @@ void loop() {
   lastAudioUpdate = currentTime;
   
   // Mise à jour de l'affichage de manière ciblée
-    // Mise à jour du curseur si nécessaire
+  // Mise à jour du curseur si nécessaire
   if (cursorStateChanged || cursorPositionChanged) {
     // Effacer l'ancien curseur seulement s'il était visible
     if (prevShouldShowCursor) {
@@ -877,7 +1117,9 @@ void loop() {
     // Mettre à jour les variables d'état
     cursor.yLast = cursor.yDisplayed;
     prevShouldShowCursor = shouldShowCursor;
-  }    // Mise à jour des blocs - seulement effacer et redessiner les pixels modifiés
+  }
+  
+  // Mise à jour des blocs - seulement effacer et redessiner les pixels modifiés
   for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
     if (blocks[i].active && blocks[i].needsUpdate) {
       // Effacer l'ancienne queue du bloc (pixel précédent)
@@ -919,5 +1161,32 @@ void loop() {
   
   // Gestion audio des blocs
   updateAudio();
+}
+
+void loop() {
+  // Machine à états pour gérer les différents états du jeu
+  switch (gameState.etat) {
+    case GAME_STATE_MENU:
+      handleMenuState();
+      break;
+      
+    case GAME_STATE_LEVEL:
+      handleLevelState();
+      break;
+      
+    case GAME_STATE_WIN:
+      handleWinState();
+      break;
+      
+    case GAME_STATE_LOSE:
+      handleLoseState();
+      break;
+      
+    default:
+      // État invalide, retourner au menu
+      Serial.println("État de jeu invalide, retour au menu");
+      changeGameState(GAME_STATE_MENU);
+      break;
+  }
 }
 

@@ -28,6 +28,12 @@
 #define CURSOR_COLOR COLOR_RED
 #define GREEN_COLUMN_COLOR COLOR_GREEN
 
+// ===== CONSTANTES ETATS JEU =====
+#define GAME_STATE_MENU 0
+#define GAME_STATE_LEVEL 1
+#define GAME_STATE_WIN 2
+#define GAME_STATE_LOSE 3
+
 // ===== CONSTANTES CURSEUR =====
 #define CURSOR_WIDTH 2
 #define CURSOR_HEIGHT 2
@@ -47,6 +53,25 @@
 
 // ===== CONSTANTES DEBUG =====
 #define DEBUG_SERIAL 1
+
+// ===== CONSTANTES NIVEAUX DE DIFFICULTE =====
+#define MIN_DIFFICULTY_LEVEL 1
+#define MAX_DIFFICULTY_LEVEL 9
+#define DEFAULT_DIFFICULTY_LEVEL 1
+
+// Nombre de cycles entre chaque déplacement de bloc selon le niveau
+// Niveau 1 (facile) : 40 cycles = 1 seconde
+// Niveau 5 (moyen) : 20 cycles = 0.5 seconde  
+// Niveau 9 (difficile) : 8 cycles = 0.2 seconde
+#define BLOCK_MOVE_CYCLES_LEVEL_1 40
+#define BLOCK_MOVE_CYCLES_LEVEL_2 35
+#define BLOCK_MOVE_CYCLES_LEVEL_3 30
+#define BLOCK_MOVE_CYCLES_LEVEL_4 25
+#define BLOCK_MOVE_CYCLES_LEVEL_5 20
+#define BLOCK_MOVE_CYCLES_LEVEL_6 16
+#define BLOCK_MOVE_CYCLES_LEVEL_7 12
+#define BLOCK_MOVE_CYCLES_LEVEL_8 10
+#define BLOCK_MOVE_CYCLES_LEVEL_9 8
 
 // ===== STRUCTURE BLOC =====
 typedef struct {
@@ -72,12 +97,29 @@ typedef struct {
   uint32_t lastBlinkTime; // Dernier temps de clignotement
 } Cursor;
 
+// ===== STRUCTURE JEU =====
+typedef struct {
+  uint8_t etat;           // État du jeu: GAME_STATE_MENU, GAME_STATE_LEVEL, GAME_STATE_WIN, GAME_STATE_LOSE
+  uint8_t level;          // Niveau de difficulté (1-9)
+  uint16_t score;         // Score du joueur
+  uint32_t timeStart;     // Temps de début de niveau (en ms)
+  uint32_t timeElapsed;   // Temps écoulé depuis le début
+  uint8_t lives;          // Nombre de vies restantes
+  uint8_t blocksHit;      // Nombre de blocs touchés avec succès
+  uint8_t blocksMissed;   // Nombre de blocs ratés
+  bool gameOver;          // Flag de fin de jeu
+  bool pauseGame;         // Flag de pause
+} GameState;
+
 // ===== VARIABLES GLOBALES PARTAGÉES =====
 extern Cursor cursor;
 extern Block blocks[MAX_BLOCKS];
 extern volatile uint16_t periodicCounter;
 extern volatile bool displayNeedsUpdate;
 extern volatile bool shouldShowCursor;
+
+// Variable principale de l'état du jeu
+extern GameState gameState;
 
 // Variables pour la musique
 extern uint8_t songPosition;
@@ -89,5 +131,29 @@ extern bool blockNotePlaying[MAX_BLOCKS];
 
 // Variable globale pour garder trace de la dernière note créée
 extern uint8_t lastNotePosition;
+
+// Variables pour le système de niveaux
+extern uint8_t currentDifficultyLevel;
+extern uint8_t blockMoveCycles;
+
+// ===== FONCTIONS UTILITAIRES =====
+// Fonction pour obtenir le nombre de cycles selon le niveau de difficulté
+uint8_t getDifficultyBlockMoveCycles(uint8_t level);
+// Fonction pour définir le niveau de difficulté
+void setDifficultyLevel(uint8_t level);
+
+// ===== FONCTIONS DE GESTION DU JEU =====
+// Initialisation de l'état du jeu
+void initGameState();
+// Gestion du menu principal
+void handleMenuState();
+// Gestion de l'état de jeu (niveau)
+void handleLevelState();
+// Gestion de l'état de victoire
+void handleWinState();
+// Gestion de l'état de défaite
+void handleLoseState();
+// Fonction pour changer l'état du jeu
+void changeGameState(uint8_t newState);
 
 #endif // DEFINITIONS_H
