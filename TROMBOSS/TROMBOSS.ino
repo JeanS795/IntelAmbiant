@@ -34,6 +34,23 @@ GameState gameState;
 // Variable de score
 Score gameScore;
 
+// ===== VARIABLES D'OPTIMISATION AFFICHAGE 7 SEGMENTS =====
+uint8_t last7SegScore = 255;        // Dernier score affiché (255 = non initialisé)
+uint8_t last7SegLevel = 255;        // Dernier niveau affiché (255 = non initialisé)
+uint8_t last7SegGameState = 255;    // Dernier état de jeu affiché (255 = non initialisé)
+bool menu7SegInitialized = false;   // Flag pour savoir si le menu a été initialisé sur 7seg
+
+// ===== ADRESSES DES AFFICHEURS 7 SEGMENTS =====
+// Organisation des afficheurs :
+// A1 (niveau) = 0x23
+// A2 (non utilisé) = 0x22  
+// A3 (dizaine score) = 0x21
+// A4 (unité score) = 0x20
+const uint8_t A1_ADDR = 0x23;
+const uint8_t A2_ADDR = 0x22;
+const uint8_t A3_ADDR = 0x21;
+const uint8_t A4_ADDR = 0x20;
+
 // ===== FONCTIONS AFFICHAGE 7 SEGMENTS =====
 
 // Fonction pour afficher un chiffre sur un afficheur 7 segments spécifique
@@ -49,76 +66,69 @@ void display7Seg(uint8_t address, uint8_t digit) {
     Wire.endTransmission();
 }
 
-// Fonction pour afficher un chiffre avec le point décimal
-void display7SegWithDot(uint8_t address, uint8_t digit) {
-    if (digit > 9) return; // Protection contre les valeurs invalides
-    
-    // Accéder au tableau Tab7Segts défini dans lib_magic.cpp
-    extern unsigned char Tab7Segts[];
-    
-    Wire.beginTransmission(address);
-    Wire.write(0x09);                           // select the GPIO register
-    Wire.write(Tab7Segts[digit] | 0x01);        // set register value to display digit + point décimal
-    Wire.endTransmission();
-}
 
-// Fonction pour afficher le score transformé (pourcentage) sur A1 (0x20) et A2 (0x21)
+
+// Fonction pour afficher le score transformé (pourcentage) sur A4 et A3
 void displayScore(uint8_t transformedScore) {
-    // Si score = 100%, afficher 00 avec point sur A2 (dizaine)
+    // Si score = 100%, afficher 10 (1 sur A3, 0 sur A4)
     if (transformedScore >= 100) {
-        display7Seg(0x20, 0);           // A1 = unité = 0
-        display7SegWithDot(0x21, 0);    // A2 = dizaine = 0 avec point décimal (représente 100%)
+        display7Seg(A4_ADDR, 9);           // A4 
+        display7Seg(A3_ADDR, 9);           // A3 
     } else {
         // Affichage normal pour score < 100%
         uint8_t unite = transformedScore % 10;
         uint8_t dizaine = (transformedScore / 10) % 10;
         
-        display7Seg(0x20, unite);       // A1 = unité
-        display7Seg(0x21, dizaine);     // A2 = dizaine
+        display7Seg(A4_ADDR, unite);       // A4 = unité
+        display7Seg(A3_ADDR, dizaine);     // A3 = dizaine
     }
 }
 
-// Fonction pour afficher le niveau sur A4 (0x23)
+// Fonction pour afficher le niveau sur A1
 void displayLevel(uint8_t level) {
     if (level > 9) level = 9; // Protection : niveau max = 9
-    display7Seg(0x23, level);
+    display7Seg(A1_ADDR, level);
 }
 
 // Fonction pour afficher "MENU" sur les 4 afficheurs pendant le menu
 void displayMENU() {
     Serial.println("Début de displayMENU()");
     
-    // Codes personnalisés pour MENU
-    uint8_t codeM = 0b11111101; 
-    uint8_t codeE = 0b01100001; 
-    uint8_t codeN = 0b11010101; 
-    uint8_t codeU = 0b10000011; 
+    // Codes personnalisés pour MENU (de gauche à droite : A1, A2, A3, A4) dernier bit = virgule
+    uint8_t codeM = 0b01101110; // M sur A1
+    uint8_t codeE = 0b11111000; // E sur A2
+    uint8_t codeN = 0b11000100; // N sur A3
+    uint8_t codeU = 0b01110110; // U sur A4
     
     Serial.println("Envoi des codes aux afficheurs...");
     
-    Wire.beginTransmission(0x20); // A1
+    Wire.beginTransmission(A1_ADDR); // A1
     Wire.write(0x09);
     Wire.write(codeM); // M
+    Wire.endTransmission();
     
-    Wire.beginTransmission(0x21); // A2  
+    Wire.beginTransmission(A2_ADDR); // A2  
     Wire.write(0x09);
     Wire.write(codeE); // E
+    Wire.endTransmission();
     
-    Wire.beginTransmission(0x22); // A3
+    Wire.beginTransmission(A3_ADDR); // A3
     Wire.write(0x09);
     Wire.write(codeN); // N
+    Wire.endTransmission();
 
     
-    Wire.beginTransmission(0x23); // A4
+    Wire.beginTransmission(A4_ADDR); // A4
     Wire.write(0x09);
     Wire.write(codeU); // U
+    Wire.endTransmission();
     
     Serial.println("Fin de displayMENU()");
 }
 
 // Fonction pour éteindre tous les afficheurs 7 segments
 void clear7Seg() {
-    for (uint8_t addr = 0x20; addr <= 0x23; addr++) {
+    for (uint8_t addr = A4_ADDR; addr <= A1_ADDR; addr++) {
         Wire.beginTransmission(addr);
         Wire.write(0x09);
         Wire.write(0x09); // Éteint
@@ -126,43 +136,72 @@ void clear7Seg() {
     }
 }
 
-// Fonction principale pour mettre à jour l'affichage 7 segments selon l'état du jeu
+// Fonction optimisée pour mettre à jour l'affichage 7 segments selon l'état du jeu
 void update7SegDisplay(uint8_t gameState, uint8_t transformedScore, uint8_t level) {
-    Serial.print("update7SegDisplay: état=");
-    Serial.print(gameState);
-    Serial.print(", score=");
-    Serial.print(transformedScore);
-    Serial.print("%, level=");
-    Serial.println(level);
+    // Optimisation : ne mettre à jour que si quelque chose a changé
+    bool needsUpdate = false;
     
-    switch (gameState) {        case 0: // GAME_STATE_MENU
-            Serial.println("Affichage MENU");
-            displayMENU();
+    // Vérifier si l'état du jeu a changé
+    if (gameState != last7SegGameState) {
+        needsUpdate = true;
+        last7SegGameState = gameState;
+        
+        // Réinitialiser les flags pour forcer la mise à jour des autres valeurs
+        if (gameState == GAME_STATE_MENU) {
+            menu7SegInitialized = false;
+        }
+        last7SegScore = 255;  // Forcer la mise à jour du score
+        last7SegLevel = 255;  // Forcer la mise à jour du niveau
+    }
+    
+    switch (gameState) {
+        case 0: // GAME_STATE_MENU
+            // Initialiser le menu seulement une fois
+            if (!menu7SegInitialized) {
+                Serial.println("Affichage MENU - init unique");
+                displayMENU();
+                menu7SegInitialized = true;
+            }
             break;
-              case 1: // GAME_STATE_LEVEL (jeu en cours)
-            displayScore(transformedScore);
-            displayLevel(level);
-            // A3 (0x22) reste éteint pendant le jeu
-            Wire.beginTransmission(0x22);
-            Wire.write(0x09);
-            Wire.write(0x09);
-            Wire.endTransmission();
+            
+        case 1: // GAME_STATE_LEVEL (jeu en cours)
+            // Mettre à jour seulement si le score ou le niveau a changé
+            if (transformedScore != last7SegScore) {
+                displayScore(transformedScore);
+                last7SegScore = transformedScore;
+#if DEBUG_SERIAL
+                Serial.print("7Seg Score mis à jour: ");
+                Serial.print(transformedScore);
+                Serial.println("%");
+#endif
+            }
+            if (level != last7SegLevel) {
+                displayLevel(level);
+                last7SegLevel = level;
+#if DEBUG_SERIAL
+                Serial.print("7Seg Level mis à jour: ");
+                Serial.println(level);
+#endif
+            }
             break;
             
         case 2: // GAME_STATE_WIN 
         case 3: // GAME_STATE_LOSE
-            // Garder le score et le niveau affichés
-            displayScore(transformedScore);
-            displayLevel(level);
-            // A3 (0x22) reste éteint
-            Wire.beginTransmission(0x22);
-            Wire.write(0x09);
-            Wire.write(0x09);
-            Wire.endTransmission();
+            // Mettre à jour seulement si le score ou le niveau a changé
+            if (transformedScore != last7SegScore) {
+                displayScore(transformedScore);
+                last7SegScore = transformedScore;
+            }
+            if (level != last7SegLevel) {
+                displayLevel(level);
+                last7SegLevel = level;
+            }
             break;
             
         default:
-            clear7Seg();
+            if (needsUpdate) {
+                clear7Seg();
+            }
             break;
     }
 }
@@ -947,6 +986,12 @@ void changeGameState(uint8_t newState) {
     gameState.etat = newState;
     clear7Seg();
     
+    // Réinitialiser les flags d'optimisation 7seg pour forcer la mise à jour
+    last7SegGameState = 255;
+    last7SegScore = 255;
+    last7SegLevel = 255;
+    menu7SegInitialized = false;
+    
 #if DEBUG_SERIAL
     Serial.print("État: ");
     switch (newState) {
@@ -1008,12 +1053,20 @@ void addMaxScore(uint16_t points) {
 
 // Calculer et mettre à jour le score transformé
 void updateTransformedScore() {
+  uint8_t oldTransformed = gameScore.transformed;
+  
   if (gameScore.maxPossible > 0) {
     // Calcul du pourcentage arrondi vers le bas
     uint32_t percentage = ((uint32_t)gameScore.current * 100) / gameScore.maxPossible;
     gameScore.transformed = (uint8_t)percentage;
   } else {
     gameScore.transformed = 0;
+  }
+  
+  // Déclencher une mise à jour 7seg si le score a changé
+  if (oldTransformed != gameScore.transformed && gameState.etat == GAME_STATE_LEVEL) {
+    // Le score a changé pendant le jeu, forcer la mise à jour lors du prochain cycle
+    last7SegScore = 255; // Invalider le cache pour forcer la mise à jour
   }
 }
 
@@ -1505,9 +1558,14 @@ void handleLevelLoop() {
 }
 
 void loop() {
-  // Mise à jour de l'affichage 7 segments (déplacé de periodicFunction pour éviter le blocage I2C)
+  // Mise à jour de l'affichage 7 segments - optimisée pour réduire les blocages I2C
   static unsigned long last7SegUpdate = 0;
-  unsigned long currentTime = millis();  if (currentTime - last7SegUpdate >= 500) { // Mise à jour toutes les 500ms (2 fois par seconde)
+  unsigned long currentTime = millis();
+
+  // Réduire la fréquence des vérifications pour les mises à jour 7seg pendant le jeu
+  unsigned long updateInterval = (gameState.etat == GAME_STATE_LEVEL) ? 200 : 500; // 200ms en jeu, 500ms ailleurs
+  
+  if (currentTime - last7SegUpdate >= updateInterval) {
     update7SegDisplay(gameState.etat, gameScore.transformed, gameState.level);
     last7SegUpdate = currentTime;
   }
