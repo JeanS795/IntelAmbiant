@@ -1309,21 +1309,20 @@ void handleWinState() {
       }
     }
   }
-  
-  if (!winInitialized) {
-    ht1632_clear();
-    // TODO: Affichage de victoire
+    if (!winInitialized) {
+    // Afficher l'écran WINNER
+    drawWinnerScreen();
     
 #if DEBUG_SERIAL
-    Serial.println("WIN");
-    Serial.print("S:");
+    Serial.println("=== VICTOIRE ===");
+    Serial.print("Score fin: ");
     Serial.print(gameScore.current);
     Serial.print("/");
     Serial.print(gameScore.maxPossible);
     Serial.print(" (");
     Serial.print(gameScore.transformed);
     Serial.println("%)");
-    Serial.print("T:");
+    Serial.print("Temps: ");
     Serial.print(gameState.timeElapsed / 1000);
     Serial.println("s");
 #endif
@@ -1331,9 +1330,15 @@ void handleWinState() {
     winDisplayTime = millis();
     winInitialized = true;
   }
-  
-  // Retourner au menu après 3 secondes
+    // Retourner au menu après 3 secondes
   if (millis() - winDisplayTime > 3000) {
+    // CORRECTION : Nettoyer l'écran WINNER avant de changer d'état
+    eraseWinnerScreen();
+    
+#if DEBUG_SERIAL
+    Serial.println("Transition WIN : écran nettoyé");
+#endif
+    
     if (gameState.level < 9) {
       // Passer au niveau suivant
       gameState.level++;
@@ -1899,5 +1904,45 @@ void eraseLoserScreen() {
   
 #if DEBUG_SERIAL
   Serial.println("LOSER OFF");
+#endif
+}
+
+// ===== FONCTIONS AFFICHAGE WINNER =====
+
+// Dessiner l'écran WINNER complet
+void drawWinnerScreen() {
+  ht1632_clear();
+  
+#if DEBUG_SERIAL
+  Serial.print("WINNER: ");
+  Serial.println(winnerEmptyCoordsCount);
+#endif
+  
+  // Remplir tout l'écran en vert (32x16 = 512 pixels)
+  for (uint8_t y = 0; y < 16; y++) {
+    for (uint8_t x = 0; x < 32; x++) {
+      ht1632_plot(x, y, COLOR_GREEN);
+    }
+  }
+  
+  // Puis enlever les pixels vides pour former le motif "WINNER"
+  for (uint16_t i = 0; i < winnerEmptyCoordsCount; i++) {
+    uint8_t x = pgm_read_byte(&winnerEmptyCoords[i * 2]);
+    uint8_t y = pgm_read_byte(&winnerEmptyCoords[i * 2 + 1]);
+    ht1632_plot(x, y, COLOR_OFF);
+  }
+  
+#if DEBUG_SERIAL
+  Serial.println("WINNER OK");
+#endif
+}
+
+// Effacer l'écran WINNER
+void eraseWinnerScreen() {
+  // Simple effacement de tout l'écran
+  ht1632_clear();
+  
+#if DEBUG_SERIAL
+  Serial.println("WINNER OFF");
 #endif
 }

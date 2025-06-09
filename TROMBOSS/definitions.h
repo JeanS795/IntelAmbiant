@@ -361,10 +361,37 @@ const uint8_t loserEmptyCoords[] PROGMEM = {
 };
 const uint16_t loserEmptyCoordsCount = sizeof(loserEmptyCoords) / 2;
 
+// ===== COORDONNÉES ÉCRAN WINNER =====
+// Coordonnées des espaces VIDES pour l'écran WINNER (format: x, y)
+// L'écran sera rempli en vert sauf à ces coordonnées qui forment le motif "WINNER"
+const uint8_t winnerEmptyCoords[] PROGMEM = {
+  // Ligne 4: pixels vides pour former les lettres WINNER
+  1,4, 5,4, 7,4, 9,4, 13,4, 15,4, 19,4, 21,4, 22,4, 23,4, 24,4, 27,4, 28,4, 29,4,
+  // Ligne 5: pixels vides
+  1,5, 5,5, 7,5, 9,5, 12,5, 13,5, 15,5, 18,5, 19,5, 21,5, 26,5, 30,5,
+  // Ligne 6: pixels vides
+  1,6, 5,6, 7,6, 9,6, 11,6, 13,6, 15,6, 17,6, 19,6, 21,6, 26,6, 30,6,
+  // Ligne 7: pixels vides
+  1,7, 5,7, 7,7, 9,7, 11,7, 13,7, 15,7, 17,7, 19,7, 21,7, 22,7, 23,7, 26,7, 29,7,
+  // Ligne 8: pixels vides
+  1,8, 5,8, 7,8, 9,8, 11,8, 13,8, 15,8, 17,8, 19,8, 21,8, 26,8, 27,8, 28,8,
+  // Ligne 9: pixels vides
+  1,9, 3,9, 5,9, 7,9, 9,9, 10,9, 13,9, 15,9, 16,9, 19,9, 21,9, 26,9, 29,9,
+  // Ligne 10: pixels vides
+  2,10, 4,10, 7,10, 9,10, 13,10, 15,10, 19,10, 21,10, 22,10, 23,10, 24,10, 26,10, 30,10
+};
+const uint16_t winnerEmptyCoordsCount = sizeof(winnerEmptyCoords) / 2;
+
 // ===== FONCTIONS AFFICHAGE LOSER =====
 // Dessiner l'écran LOSER complet
 void drawLoserScreen();
 // Effacer l'écran LOSER
 void eraseLoserScreen();
+
+// ===== FONCTIONS AFFICHAGE WINNER =====
+// Dessiner l'écran WINNER complet
+void drawWinnerScreen();
+// Effacer l'écran WINNER
+void eraseWinnerScreen();
 
 #endif // DEFINITIONS_H
