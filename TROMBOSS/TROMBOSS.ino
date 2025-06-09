@@ -709,11 +709,20 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
 #endif
     return;
   }
+    // Calcul de la longueur en fonction de la durée
+  // Convertir les durées musicales (1-32) en longueurs visuelles (1-8 pixels)
+  uint8_t length;
+  if (note.duration >= 32) length = 8;        // Niveau 1: 32 -> 8 pixels
+  else if (note.duration >= 24) length = 6;   // Niveau 2: 24 -> 6 pixels
+  else if (note.duration >= 16) length = 5;   // Niveau 3: 16 -> 5 pixels
+  else if (note.duration >= 12) length = 4;   // Niveau 4: 12 -> 4 pixels
+  else if (note.duration >= 8) length = 3;    // Niveau 5: 8 -> 3 pixels
+  else if (note.duration >= 6) length = 3;    // Niveau 6: 6 -> 3 pixels
+  else if (note.duration >= 4) length = 2;    // Niveau 7: 4 -> 2 pixels
+  else if (note.duration >= 2) length = 2;    // Niveau 8: 2 -> 2 pixels
+  else length = 1;                             // Niveau 9: 1 -> 1 pixel
   
-  // Calcul de la longueur en fonction de la durée
-  // Augmenter la longueur des blocs pour qu'ils restent visibles plus longtemps
-  uint8_t length = note.duration; // Doublé (était note.duration / 2)
-  if (length < 2) length = 1;     // Longueur minimale de 1
+  if (length < 1) length = 1;     // Longueur minimale de 1
   
   // Position verticale en fonction de la fréquence
   uint8_t posY = getPositionYFromFrequency(note.frequency);
@@ -884,7 +893,7 @@ void nextNote() {
   const MusicNote* currentSong;
   uint8_t currentSongSize;
     // Vérification pour éviter la création multiple de la même note
-  if (songPosition == lastNotePosition && currentSongPart == currentSongPart) {
+  if (songPosition == lastNotePosition) {
 #if DEBUG_SERIAL
     Serial.println("Note dupliquée");
 #endif
@@ -894,23 +903,63 @@ void nextNote() {
   // Mémoriser cette position pour éviter la duplication
   lastNotePosition = songPosition;
   
-  // Déterminer quelle partie de la chanson nous jouons
+  // Déterminer quelle partie de la chanson nous jouons selon le niveau de difficulté
   switch (currentSongPart) {
     case 0:  // Intro
-      currentSong = intro;
-      currentSongSize = INTRO_SIZE;
+      switch (currentDifficultyLevel) {
+        case 1: currentSong = level1_intro; currentSongSize = LEVEL1_INTRO_SIZE; break;
+        case 2: currentSong = level2_intro; currentSongSize = LEVEL2_INTRO_SIZE; break;
+        case 3: currentSong = level3_intro; currentSongSize = LEVEL3_INTRO_SIZE; break;
+        case 4: currentSong = level4_intro; currentSongSize = LEVEL4_INTRO_SIZE; break;
+        case 5: currentSong = level5_intro; currentSongSize = LEVEL5_INTRO_SIZE; break;
+        case 6: currentSong = level6_intro; currentSongSize = LEVEL6_INTRO_SIZE; break;
+        case 7: currentSong = level7_intro; currentSongSize = LEVEL7_INTRO_SIZE; break;
+        case 8: currentSong = level8_intro; currentSongSize = LEVEL8_INTRO_SIZE; break;
+        case 9: currentSong = level9_intro; currentSongSize = LEVEL9_INTRO_SIZE; break;
+        default: currentSong = intro; currentSongSize = INTRO_SIZE; break; // Fallback
+      }
       break;
     case 1:  // Verse
-      currentSong = verse;
-      currentSongSize = VERSE_SIZE;
+      switch (currentDifficultyLevel) {
+        case 1: currentSong = level1_verse; currentSongSize = LEVEL1_VERSE_SIZE; break;
+        case 2: currentSong = level2_verse; currentSongSize = LEVEL2_VERSE_SIZE; break;
+        case 3: currentSong = level3_verse; currentSongSize = LEVEL3_VERSE_SIZE; break;
+        case 4: currentSong = level4_verse; currentSongSize = LEVEL4_VERSE_SIZE; break;
+        case 5: currentSong = level5_verse; currentSongSize = LEVEL5_VERSE_SIZE; break;
+        case 6: currentSong = level6_verse; currentSongSize = LEVEL6_VERSE_SIZE; break;
+        case 7: currentSong = level7_verse; currentSongSize = LEVEL7_VERSE_SIZE; break;
+        case 8: currentSong = level8_verse; currentSongSize = LEVEL8_VERSE_SIZE; break;
+        case 9: currentSong = level9_verse; currentSongSize = LEVEL9_VERSE_SIZE; break;
+        default: currentSong = verse; currentSongSize = VERSE_SIZE; break; // Fallback
+      }
       break;
     case 2:  // Chorus
-      currentSong = chorus;
-      currentSongSize = CHORUS_SIZE;
+      switch (currentDifficultyLevel) {
+        case 1: currentSong = level1_chorus; currentSongSize = LEVEL1_CHORUS_SIZE; break;
+        case 2: currentSong = level2_chorus; currentSongSize = LEVEL2_CHORUS_SIZE; break;
+        case 3: currentSong = level3_chorus; currentSongSize = LEVEL3_CHORUS_SIZE; break;
+        case 4: currentSong = level4_chorus; currentSongSize = LEVEL4_CHORUS_SIZE; break;
+        case 5: currentSong = level5_chorus; currentSongSize = LEVEL5_CHORUS_SIZE; break;
+        case 6: currentSong = level6_chorus; currentSongSize = LEVEL6_CHORUS_SIZE; break;
+        case 7: currentSong = level7_chorus; currentSongSize = LEVEL7_CHORUS_SIZE; break;
+        case 8: currentSong = level8_chorus; currentSongSize = LEVEL8_CHORUS_SIZE; break;
+        case 9: currentSong = level9_chorus; currentSongSize = LEVEL9_CHORUS_SIZE; break;
+        default: currentSong = chorus; currentSongSize = CHORUS_SIZE; break; // Fallback
+      }
       break;
     case 3:  // Hook
-      currentSong = hookPart;
-      currentSongSize = HOOK_SIZE;
+      switch (currentDifficultyLevel) {
+        case 1: currentSong = level1_hook; currentSongSize = LEVEL1_HOOK_SIZE; break;
+        case 2: currentSong = level2_hook; currentSongSize = LEVEL2_HOOK_SIZE; break;
+        case 3: currentSong = level3_hook; currentSongSize = LEVEL3_HOOK_SIZE; break;
+        case 4: currentSong = level4_hook; currentSongSize = LEVEL4_HOOK_SIZE; break;
+        case 5: currentSong = level5_hook; currentSongSize = LEVEL5_HOOK_SIZE; break;
+        case 6: currentSong = level6_hook; currentSongSize = LEVEL6_HOOK_SIZE; break;
+        case 7: currentSong = level7_hook; currentSongSize = LEVEL7_HOOK_SIZE; break;
+        case 8: currentSong = level8_hook; currentSongSize = LEVEL8_HOOK_SIZE; break;
+        case 9: currentSong = level9_hook; currentSongSize = LEVEL9_HOOK_SIZE; break;
+        default: currentSong = hookPart; currentSongSize = HOOK_SIZE; break; // Fallback
+      }
       break;
     default:
       songFinished = 1;
@@ -1428,6 +1477,21 @@ void changeGameState(uint8_t newState) {
     gameState.etat = newState;
     clear7Seg();
     
+    // CORRECTION CRITIQUE: Nettoyage complet de la matrice LED lors du changement d'état
+    // Triple nettoyage pour s'assurer que la shadow memory est complètement effacée
+    ht1632_clear();
+    delay(10);
+    ht1632_clear();
+    delay(10);
+    ht1632_clear();
+    
+    // CORRECTION CRITIQUE: Nettoyage manuel forcé de toute la shadowram
+    for (int chip = 0; chip < 4; chip++) {
+      for (int addr = 0; addr < 64; addr++) {
+        ht1632_shadowram[addr][chip] = 0;
+      }
+    }
+    
     // Réinitialiser les flags d'optimisation 7seg pour forcer la mise à jour
     last7SegGameState = 255;
     last7SegScore = 255;
@@ -1454,7 +1518,7 @@ void changeGameState(uint8_t newState) {
       case GAME_STATE_WIN: Serial.println("WIN"); break;
       case GAME_STATE_LOSE: Serial.println("LOSE"); break;
     }
-    Serial.println("Réinitialisation bouton programmée");
+    Serial.println("Écran nettoyé - Réinitialisation bouton programmée");
 #endif
   }
 }
