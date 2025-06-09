@@ -1,7 +1,4 @@
-/*
- * notes_frequencies.h
- * Définition des fréquences des notes pour la musique
- */
+
 
 #ifndef NOTES_FREQUENCIES_H
 #define NOTES_FREQUENCIES_H

@@ -7,8 +7,6 @@
 #define SONG_PATTERNS_H
 
 #include "notes_frequencies.h"
-#include "tempo.h" // Ajouté pour que chaque pattern puisse définir son tempo
-#include <avr/pgmspace.h>
 
 // Structure pour stocker une note et sa durée - optimisée
 typedef struct {
@@ -139,36 +137,34 @@ const PROGMEM MusicNote level4_hook[] = {
 // ===== NIVEAU 5 - MOYEN-DIFFICILE =====
 // Notes rapides avec contrastes marqués, sauts moyens
 const PROGMEM MusicNote level5_intro[] = {
-    {NOTE_C4, 8}, {NOTE_F5, 4}, {NOTE_A4, 8}, {NOTE_D6, 6},
-    {NOTE_G4, 4}, {NOTE_C6, 8}, {NOTE_E5, 6}, {NOTE_A6, 4},
-    {NOTE_F4, 8}, {NOTE_B5, 4}, {NOTE_D5, 6}, {NOTE_G6, 8},
-    {NOTE_A4, 4}, {NOTE_E6, 6}, {NOTE_C5, 8}, {NOTE_F6, 4},
-    {NOTE_B4, 6}, {NOTE_D6, 8}, {NOTE_G5, 4}, {NOTE_C7, 6}
+     {NOTE_E5, 4}, {NOTE_B4, 8}, {NOTE_C5, 8}, {NOTE_D5, 4}, 
+     {NOTE_C5, 8}, {NOTE_B4, 8}, {NOTE_A4, 4}, {NOTE_A4, 8}, 
+     {NOTE_C5, 8}, {NOTE_E5, 4}, {NOTE_D5, 8}, {NOTE_C5, 8},
+     {NOTE_B4, 6}, {NOTE_C5, 8}, {NOTE_D5, 4}, {NOTE_E5, 4},
+     {NOTE_C5, 4}, {NOTE_A4, 4}, {NOTE_A4, 2}
 };
 
 const PROGMEM MusicNote level5_verse[] = {
-    {NOTE_E4, 8}, {NOTE_A6, 3}, {NOTE_C5, 6}, {NOTE_F6, 8},
-    {NOTE_G4, 4}, {NOTE_B6, 6}, {NOTE_D5, 8}, {NOTE_E6, 4},
-    {NOTE_A4, 6}, {NOTE_C7, 3}, {NOTE_F5, 8}, {NOTE_G6, 6},
-    {NOTE_B4, 4}, {NOTE_D7, 6}, {NOTE_E5, 8}, {NOTE_A6, 3},
-    {NOTE_C4, 6}, {NOTE_F7, 4}, {NOTE_G5, 8}, {NOTE_B6, 6},
-    {NOTE_D4, 3}, {NOTE_E7, 6}, {NOTE_A5, 8}, {NOTE_C6, 4},
-    {NOTE_F4, 6}, {NOTE_G7, 3}, {NOTE_B5, 8}, {NOTE_D6, 6}
+     {NOTE_D5, 4}, {NOTE_F5, 8}, {NOTE_A5, 4}, {NOTE_G5, 8}, 
+     {NOTE_F5, 8}, {NOTE_E5, 6}, {NOTE_C5, 8}, {NOTE_E5, 4}, 
+     {NOTE_D5, 8}, {NOTE_C5, 8}, {NOTE_B4, 6}, {NOTE_C5, 8}, 
+     {NOTE_D5, 4}, {NOTE_E5, 4}, {NOTE_C5, 4}, {NOTE_A4, 4}, 
+     {NOTE_A4, 2}
 };
 
 const PROGMEM MusicNote level5_chorus[] = {
-    {NOTE_A4, 6}, {NOTE_F7, 3}, {NOTE_D5, 8}, {NOTE_B6, 4},
-    {NOTE_G4, 6}, {NOTE_E7, 3}, {NOTE_C6, 8}, {NOTE_A6, 6},
-    {NOTE_F5, 4}, {NOTE_D7, 6}, {NOTE_B4, 8}, {NOTE_G7, 3},
-    {NOTE_E5, 6}, {NOTE_C7, 4}, {NOTE_A5, 8}, {NOTE_F6, 6},
-    {NOTE_D4, 3}, {NOTE_B7, 6}, {NOTE_G5, 8}, {NOTE_E6, 4}
-};
+    {NOTE_E5, 4}, {NOTE_B4, 8}, {NOTE_C5, 8}, {NOTE_D5, 4}, 
+    {NOTE_C5, 8}, {NOTE_B4, 8}, {NOTE_A4, 4}, {NOTE_A4, 8}, 
+    {NOTE_C5, 8}, {NOTE_E5, 4}, {NOTE_D5, 8}, {NOTE_C5, 8},
+    {NOTE_B4, 6}, {NOTE_C5, 8}, {NOTE_D5, 4}, {NOTE_E5, 4},
+    {NOTE_C5, 4}, {NOTE_A4, 4}, {NOTE_A4, 2}, {NOTE_D5, 4}, 
+    {NOTE_F5, 8}, {NOTE_A5, 4}, {NOTE_G5, 8}, {NOTE_F5, 8}
+ };
 
 const PROGMEM MusicNote level5_hook[] = {
-    {NOTE_C5, 6}, {NOTE_A7, 3}, {NOTE_F4, 8}, {NOTE_D7, 4},
-    {NOTE_B5, 6}, {NOTE_G6, 3}, {NOTE_E4, 8}, {NOTE_C7, 6},
-    {NOTE_A5, 4}, {NOTE_F7, 6}, {NOTE_D4, 8}, {NOTE_B6, 3},
-    {NOTE_G5, 6}, {NOTE_E7, 4}
+    {NOTE_E5, 6}, {NOTE_C5, 8}, {NOTE_E5, 4}, {NOTE_D5, 8}, 
+    {NOTE_C5, 8}, {NOTE_B4, 6}, {NOTE_C5, 8}, {NOTE_D5, 4}, 
+    {NOTE_E5, 4}, {NOTE_C5, 4}, {NOTE_A4, 4}, {NOTE_A4, 1}
 };
 
 // ===== NIVEAU 6 - DIFFICILE =====
