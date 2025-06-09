@@ -78,9 +78,9 @@ void loop() {
 
   // Réduire la fréquence des vérifications pour les mises à jour 7seg pendant le jeu
   unsigned long updateInterval = (gameState.etat == GAME_STATE_LEVEL) ? 200 : 500; // 200ms en jeu, 500ms ailleurs
-  
-  if (currentTime - last7SegUpdate >= updateInterval) {
-    update7SegDisplay(gameState.etat, gameScore.transformed, gameState.level);
+    if (currentTime - last7SegUpdate >= updateInterval) {
+    // CORRECTION CRITIQUE: Utiliser la variable persistante pour l'affichage 7-segments
+    update7SegDisplay(gameState.etat, gameScore.transformed, persistentSelectedLevel);
     last7SegUpdate = currentTime;
   }
   
@@ -423,7 +423,8 @@ void displayScore(uint8_t transformedScore) {
 // Fonction pour afficher le niveau sur A1
 void displayLevel(uint8_t level) {
     if (level > 9) level = 9; // Protection : niveau max = 9
-    display7Seg(A1_ADDR, level);
+    display7Seg(A2_ADDR, level);
+    display7Seg(A1_ADDR, 0);
 }
 
 // Fonction pour afficher "MENU" sur les 4 afficheurs pendant le menu
