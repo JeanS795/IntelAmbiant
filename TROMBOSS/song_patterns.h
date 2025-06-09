@@ -19,287 +19,287 @@ typedef struct {
 // Séquences de notes avec leurs durées - stockées en mémoire PROGMEM
 
 // ===== NIVEAU 1 - TRÈS FACILE =====
-// Notes très lentes, pas de sauts, octaves basses
+// Notes principalement longues avec quelques variations, pas de sauts, octaves basses
 const PROGMEM MusicNote level1_intro[] = {
-    {NOTE_C4, 32}, {NOTE_D4, 32}, {NOTE_E4, 32}, {NOTE_F4, 32},
-    {NOTE_G4, 32}, {NOTE_A4, 32}, {NOTE_B4, 32}, {NOTE_C5, 32},
-    {NOTE_D5, 32}, {NOTE_E5, 32}
+    {NOTE_C4, 32}, {NOTE_D4, 24}, {NOTE_E4, 32}, {NOTE_F4, 24},
+    {NOTE_G4, 32}, {NOTE_A4, 24}, {NOTE_B4, 32}, {NOTE_C5, 24},
+    {NOTE_D5, 32}, {NOTE_E5, 24}
 };
 
 const PROGMEM MusicNote level1_verse[] = {
-    {NOTE_C4, 32}, {NOTE_E4, 32}, {NOTE_G4, 32}, {NOTE_C5, 32},
-    {NOTE_E5, 32}, {NOTE_G5, 32}, {NOTE_C5, 32}, {NOTE_G4, 32},
-    {NOTE_E4, 32}, {NOTE_C4, 32}, {NOTE_D4, 32}, {NOTE_F4, 32},
-    {NOTE_A4, 32}, {NOTE_D5, 32}, {NOTE_F5, 32}, {NOTE_A5, 32}
+    {NOTE_C4, 32}, {NOTE_E4, 24}, {NOTE_G4, 32}, {NOTE_C5, 24},
+    {NOTE_E5, 32}, {NOTE_G5, 16}, {NOTE_C5, 24}, {NOTE_G4, 32},
+    {NOTE_E4, 24}, {NOTE_C4, 32}, {NOTE_D4, 24}, {NOTE_F4, 32},
+    {NOTE_A4, 24}, {NOTE_D5, 32}, {NOTE_F5, 16}, {NOTE_A5, 24}
 };
 
 const PROGMEM MusicNote level1_chorus[] = {
-    {NOTE_G4, 32}, {NOTE_A4, 32}, {NOTE_B4, 32}, {NOTE_C5, 32},
-    {NOTE_D5, 32}, {NOTE_E5, 32}, {NOTE_F5, 32}, {NOTE_G5, 32},
-    {NOTE_F5, 32}, {NOTE_E5, 32}, {NOTE_D5, 32}, {NOTE_C5, 32}
+    {NOTE_G4, 32}, {NOTE_A4, 24}, {NOTE_B4, 32}, {NOTE_C5, 24},
+    {NOTE_D5, 32}, {NOTE_E5, 16}, {NOTE_F5, 24}, {NOTE_G5, 32},
+    {NOTE_F5, 24}, {NOTE_E5, 32}, {NOTE_D5, 24}, {NOTE_C5, 32}
 };
 
 const PROGMEM MusicNote level1_hook[] = {
-    {NOTE_C5, 32}, {NOTE_G4, 32}, {NOTE_E4, 32}, {NOTE_C4, 32},
-    {NOTE_E4, 32}, {NOTE_G4, 32}, {NOTE_C5, 32}, {NOTE_G4, 32}
+    {NOTE_C5, 32}, {NOTE_G4, 24}, {NOTE_E4, 32}, {NOTE_C4, 24},
+    {NOTE_E4, 32}, {NOTE_G4, 16}, {NOTE_C5, 24}, {NOTE_G4, 32}
 };
 
 // ===== NIVEAU 2 - FACILE =====
-// Notes lentes, petits sauts
+// Mix de notes moyennes à longues, petits sauts
 const PROGMEM MusicNote level2_intro[] = {
-    {NOTE_C4, 24}, {NOTE_E4, 24}, {NOTE_G4, 24}, {NOTE_C5, 24},
-    {NOTE_A4, 24}, {NOTE_F4, 24}, {NOTE_D4, 24}, {NOTE_G4, 24},
-    {NOTE_B4, 24}, {NOTE_D5, 24}, {NOTE_F5, 24}, {NOTE_A5, 24}
+    {NOTE_C4, 24}, {NOTE_E4, 16}, {NOTE_G4, 24}, {NOTE_C5, 20},
+    {NOTE_A4, 16}, {NOTE_F4, 24}, {NOTE_D4, 20}, {NOTE_G4, 16},
+    {NOTE_B4, 24}, {NOTE_D5, 16}, {NOTE_F5, 20}, {NOTE_A5, 24}
 };
 
 const PROGMEM MusicNote level2_verse[] = {
-    {NOTE_C4, 24}, {NOTE_G4, 24}, {NOTE_E5, 24}, {NOTE_C5, 24},
-    {NOTE_F4, 24}, {NOTE_A4, 24}, {NOTE_D5, 24}, {NOTE_F5, 24},
-    {NOTE_G4, 24}, {NOTE_B4, 24}, {NOTE_G5, 24}, {NOTE_D5, 24},
-    {NOTE_A4, 24}, {NOTE_C5, 24}, {NOTE_E5, 24}, {NOTE_A5, 24},
-    {NOTE_F5, 24}, {NOTE_D5, 24}, {NOTE_B4, 24}, {NOTE_G4, 24}
+    {NOTE_C4, 24}, {NOTE_G4, 16}, {NOTE_E5, 24}, {NOTE_C5, 20},
+    {NOTE_F4, 16}, {NOTE_A4, 24}, {NOTE_D5, 16}, {NOTE_F5, 20},
+    {NOTE_G4, 24}, {NOTE_B4, 16}, {NOTE_G5, 24}, {NOTE_D5, 20},
+    {NOTE_A4, 16}, {NOTE_C5, 24}, {NOTE_E5, 16}, {NOTE_A5, 20},
+    {NOTE_F5, 24}, {NOTE_D5, 16}, {NOTE_B4, 20}, {NOTE_G4, 24}
 };
 
 const PROGMEM MusicNote level2_chorus[] = {
-    {NOTE_E4, 24}, {NOTE_C5, 24}, {NOTE_G5, 24}, {NOTE_E5, 24},
-    {NOTE_F4, 24}, {NOTE_D5, 24}, {NOTE_A5, 24}, {NOTE_F5, 24},
-    {NOTE_G4, 24}, {NOTE_E5, 24}, {NOTE_B5, 24}, {NOTE_G5, 24},
-    {NOTE_A4, 24}, {NOTE_F5, 24}, {NOTE_C6, 24}, {NOTE_A5, 24}
+    {NOTE_E4, 20}, {NOTE_C5, 16}, {NOTE_G5, 24}, {NOTE_E5, 20},
+    {NOTE_F4, 16}, {NOTE_D5, 24}, {NOTE_A5, 16}, {NOTE_F5, 20},
+    {NOTE_G4, 24}, {NOTE_E5, 16}, {NOTE_B5, 20}, {NOTE_G5, 24},
+    {NOTE_A4, 16}, {NOTE_F5, 20}, {NOTE_C6, 24}, {NOTE_A5, 16}
 };
 
 const PROGMEM MusicNote level2_hook[] = {
-    {NOTE_C5, 24}, {NOTE_E4, 24}, {NOTE_G5, 24}, {NOTE_C4, 24},
-    {NOTE_F5, 24}, {NOTE_A4, 24}, {NOTE_D5, 24}, {NOTE_G4, 24},
-    {NOTE_B5, 24}, {NOTE_D4, 24}
+    {NOTE_C5, 24}, {NOTE_E4, 16}, {NOTE_G5, 20}, {NOTE_C4, 24},
+    {NOTE_F5, 16}, {NOTE_A4, 24}, {NOTE_D5, 20}, {NOTE_G4, 16},
+    {NOTE_B5, 24}, {NOTE_D4, 20}
 };
 
 // ===== NIVEAU 3 - FACILE-MOYEN =====
-// Notes moyennes, plus de variété
+// Notes moyennes avec plus de variété rythmique
 const PROGMEM MusicNote level3_intro[] = {
-    {NOTE_C4, 16}, {NOTE_F4, 16}, {NOTE_A4, 16}, {NOTE_D5, 16},
-    {NOTE_G4, 16}, {NOTE_B4, 16}, {NOTE_E5, 16}, {NOTE_A5, 16},
-    {NOTE_D4, 16}, {NOTE_G4, 16}, {NOTE_C5, 16}, {NOTE_F5, 16},
-    {NOTE_B4, 16}, {NOTE_E5, 16}, {NOTE_A5, 16}, {NOTE_D6, 16}
+    {NOTE_C4, 16}, {NOTE_F4, 12}, {NOTE_A4, 16}, {NOTE_D5, 14},
+    {NOTE_G4, 12}, {NOTE_B4, 16}, {NOTE_E5, 14}, {NOTE_A5, 12},
+    {NOTE_D4, 16}, {NOTE_G4, 14}, {NOTE_C5, 12}, {NOTE_F5, 16},
+    {NOTE_B4, 14}, {NOTE_E5, 12}, {NOTE_A5, 16}, {NOTE_D6, 14}
 };
 
 const PROGMEM MusicNote level3_verse[] = {
-    {NOTE_C4, 16}, {NOTE_A4, 16}, {NOTE_F5, 16}, {NOTE_D5, 16},
-    {NOTE_G4, 16}, {NOTE_E5, 16}, {NOTE_C6, 16}, {NOTE_A5, 16},
-    {NOTE_F4, 16}, {NOTE_D5, 16}, {NOTE_B5, 16}, {NOTE_G5, 16},
-    {NOTE_E4, 16}, {NOTE_C5, 16}, {NOTE_A5, 16}, {NOTE_F5, 16},
-    {NOTE_D4, 16}, {NOTE_B4, 16}, {NOTE_G5, 16}, {NOTE_E5, 16},
-    {NOTE_A4, 16}, {NOTE_F5, 16}, {NOTE_D6, 16}, {NOTE_B5, 16}
+    {NOTE_C4, 16}, {NOTE_A4, 12}, {NOTE_F5, 16}, {NOTE_D5, 14},
+    {NOTE_G4, 12}, {NOTE_E5, 16}, {NOTE_C6, 10}, {NOTE_A5, 14},
+    {NOTE_F4, 16}, {NOTE_D5, 12}, {NOTE_B5, 16}, {NOTE_G5, 14},
+    {NOTE_E4, 12}, {NOTE_C5, 16}, {NOTE_A5, 14}, {NOTE_F5, 12},
+    {NOTE_D4, 16}, {NOTE_B4, 14}, {NOTE_G5, 12}, {NOTE_E5, 16},
+    {NOTE_A4, 14}, {NOTE_F5, 12}, {NOTE_D6, 16}, {NOTE_B5, 14}
 };
 
 const PROGMEM MusicNote level3_chorus[] = {
-    {NOTE_G4, 16}, {NOTE_D5, 16}, {NOTE_B5, 16}, {NOTE_F5, 16},
-    {NOTE_C5, 16}, {NOTE_A5, 16}, {NOTE_E6, 16}, {NOTE_C6, 16},
-    {NOTE_F4, 16}, {NOTE_C5, 16}, {NOTE_A5, 16}, {NOTE_F6, 16},
-    {NOTE_D5, 16}, {NOTE_B5, 16}, {NOTE_G6, 16}, {NOTE_D6, 16}
+    {NOTE_G4, 14}, {NOTE_D5, 12}, {NOTE_B5, 16}, {NOTE_F5, 14},
+    {NOTE_C5, 12}, {NOTE_A5, 16}, {NOTE_E6, 10}, {NOTE_C6, 14},
+    {NOTE_F4, 16}, {NOTE_C5, 12}, {NOTE_A5, 14}, {NOTE_F6, 16},
+    {NOTE_D5, 12}, {NOTE_B5, 14}, {NOTE_G6, 16}, {NOTE_D6, 12}
 };
 
 const PROGMEM MusicNote level3_hook[] = {
-    {NOTE_E5, 16}, {NOTE_C4, 16}, {NOTE_A5, 16}, {NOTE_F4, 16},
-    {NOTE_D6, 16}, {NOTE_G4, 16}, {NOTE_B5, 16}, {NOTE_E4, 16},
-    {NOTE_C6, 16}, {NOTE_A4, 16}, {NOTE_F5, 16}, {NOTE_D4, 16}
+    {NOTE_E5, 16}, {NOTE_C4, 12}, {NOTE_A5, 14}, {NOTE_F4, 16},
+    {NOTE_D6, 10}, {NOTE_G4, 14}, {NOTE_B5, 16}, {NOTE_E4, 12},
+    {NOTE_C6, 14}, {NOTE_A4, 16}, {NOTE_F5, 12}, {NOTE_D4, 14}
 };
 
 // ===== NIVEAU 4 - MOYEN =====
-// Notes moyennes, sauts plus grands
+// Notes moyennes à rapides, sauts plus grands, rythmes variés
 const PROGMEM MusicNote level4_intro[] = {
-    {NOTE_C4, 12}, {NOTE_G5, 12}, {NOTE_E4, 12}, {NOTE_B5, 12},
-    {NOTE_F4, 12}, {NOTE_D6, 12}, {NOTE_A4, 12}, {NOTE_F6, 12},
-    {NOTE_D4, 12}, {NOTE_A5, 12}, {NOTE_G4, 12}, {NOTE_E6, 12},
-    {NOTE_B4, 12}, {NOTE_G6, 12}, {NOTE_C5, 12}, {NOTE_A6, 12}
+    {NOTE_C4, 12}, {NOTE_G5, 8}, {NOTE_E4, 12}, {NOTE_B5, 10},
+    {NOTE_F4, 8}, {NOTE_D6, 12}, {NOTE_A4, 10}, {NOTE_F6, 8},
+    {NOTE_D4, 12}, {NOTE_A5, 8}, {NOTE_G4, 10}, {NOTE_E6, 12},
+    {NOTE_B4, 8}, {NOTE_G6, 10}, {NOTE_C5, 12}, {NOTE_A6, 8}
 };
 
 const PROGMEM MusicNote level4_verse[] = {
-    {NOTE_C4, 12}, {NOTE_E6, 12}, {NOTE_G4, 12}, {NOTE_C6, 12},
-    {NOTE_F4, 12}, {NOTE_A6, 12}, {NOTE_D5, 12}, {NOTE_F6, 12},
-    {NOTE_B4, 12}, {NOTE_D6, 12}, {NOTE_G5, 12}, {NOTE_B6, 12},
-    {NOTE_E4, 12}, {NOTE_G6, 12}, {NOTE_A4, 12}, {NOTE_C7, 12},
-    {NOTE_F5, 12}, {NOTE_A5, 12}, {NOTE_C4, 12}, {NOTE_E6, 12},
-    {NOTE_D4, 12}, {NOTE_B5, 12}, {NOTE_G4, 12}, {NOTE_D7, 12}
+    {NOTE_C4, 12}, {NOTE_E6, 6}, {NOTE_G4, 10}, {NOTE_C6, 8},
+    {NOTE_F4, 12}, {NOTE_A6, 6}, {NOTE_D5, 8}, {NOTE_F6, 10},
+    {NOTE_B4, 12}, {NOTE_D6, 8}, {NOTE_G5, 6}, {NOTE_B6, 10},
+    {NOTE_E4, 12}, {NOTE_G6, 8}, {NOTE_A4, 6}, {NOTE_C7, 10},
+    {NOTE_F5, 8}, {NOTE_A5, 12}, {NOTE_C4, 6}, {NOTE_E6, 10},
+    {NOTE_D4, 12}, {NOTE_B5, 8}, {NOTE_G4, 6}, {NOTE_D7, 10}
 };
 
 const PROGMEM MusicNote level4_chorus[] = {
-    {NOTE_E4, 12}, {NOTE_C7, 12}, {NOTE_A4, 12}, {NOTE_F6, 12},
-    {NOTE_D5, 12}, {NOTE_B6, 12}, {NOTE_G4, 12}, {NOTE_E7, 12},
-    {NOTE_C5, 12}, {NOTE_A6, 12}, {NOTE_F4, 12}, {NOTE_D7, 12},
-    {NOTE_B4, 12}, {NOTE_G7, 12}, {NOTE_E5, 12}, {NOTE_C6, 12},
-    {NOTE_A5, 12}, {NOTE_F7, 12}, {NOTE_D4, 12}, {NOTE_B5, 12}
+    {NOTE_E4, 10}, {NOTE_C7, 6}, {NOTE_A4, 12}, {NOTE_F6, 8},
+    {NOTE_D5, 6}, {NOTE_B6, 10}, {NOTE_G4, 12}, {NOTE_E7, 8},
+    {NOTE_C5, 6}, {NOTE_A6, 10}, {NOTE_F4, 12}, {NOTE_D7, 6},
+    {NOTE_B4, 8}, {NOTE_G7, 10}, {NOTE_E5, 12}, {NOTE_C6, 6},
+    {NOTE_A5, 8}, {NOTE_F7, 10}, {NOTE_D4, 12}, {NOTE_B5, 6}
 };
 
 const PROGMEM MusicNote level4_hook[] = {
-    {NOTE_G4, 12}, {NOTE_E7, 12}, {NOTE_C5, 12}, {NOTE_A6, 12},
-    {NOTE_F4, 12}, {NOTE_D7, 12}, {NOTE_B5, 12}, {NOTE_G6, 12},
-    {NOTE_E4, 12}, {NOTE_C7, 12}, {NOTE_A4, 12}, {NOTE_F6, 12}
+    {NOTE_G4, 10}, {NOTE_E7, 6}, {NOTE_C5, 12}, {NOTE_A6, 8},
+    {NOTE_F4, 6}, {NOTE_D7, 10}, {NOTE_B5, 12}, {NOTE_G6, 6},
+    {NOTE_E4, 8}, {NOTE_C7, 10}, {NOTE_A4, 12}, {NOTE_F6, 6}
 };
 
 // ===== NIVEAU 5 - MOYEN-DIFFICILE =====
-// Notes rapides, sauts moyens
+// Notes rapides avec contrastes marqués, sauts moyens
 const PROGMEM MusicNote level5_intro[] = {
-    {NOTE_C4, 8}, {NOTE_F5, 8}, {NOTE_A4, 8}, {NOTE_D6, 8},
-    {NOTE_G4, 8}, {NOTE_C6, 8}, {NOTE_E5, 8}, {NOTE_A6, 8},
-    {NOTE_F4, 8}, {NOTE_B5, 8}, {NOTE_D5, 8}, {NOTE_G6, 8},
-    {NOTE_A4, 8}, {NOTE_E6, 8}, {NOTE_C5, 8}, {NOTE_F6, 8},
-    {NOTE_B4, 8}, {NOTE_D6, 8}, {NOTE_G5, 8}, {NOTE_C7, 8}
+    {NOTE_C4, 8}, {NOTE_F5, 4}, {NOTE_A4, 8}, {NOTE_D6, 6},
+    {NOTE_G4, 4}, {NOTE_C6, 8}, {NOTE_E5, 6}, {NOTE_A6, 4},
+    {NOTE_F4, 8}, {NOTE_B5, 4}, {NOTE_D5, 6}, {NOTE_G6, 8},
+    {NOTE_A4, 4}, {NOTE_E6, 6}, {NOTE_C5, 8}, {NOTE_F6, 4},
+    {NOTE_B4, 6}, {NOTE_D6, 8}, {NOTE_G5, 4}, {NOTE_C7, 6}
 };
 
 const PROGMEM MusicNote level5_verse[] = {
-    {NOTE_E4, 8}, {NOTE_A6, 8}, {NOTE_C5, 8}, {NOTE_F6, 8},
-    {NOTE_G4, 8}, {NOTE_B6, 8}, {NOTE_D5, 8}, {NOTE_E6, 8},
-    {NOTE_A4, 8}, {NOTE_C7, 8}, {NOTE_F5, 8}, {NOTE_G6, 8},
-    {NOTE_B4, 8}, {NOTE_D7, 8}, {NOTE_E5, 8}, {NOTE_A6, 8},
-    {NOTE_C4, 8}, {NOTE_F7, 8}, {NOTE_G5, 8}, {NOTE_B6, 8},
-    {NOTE_D4, 8}, {NOTE_E7, 8}, {NOTE_A5, 8}, {NOTE_C6, 8},
-    {NOTE_F4, 8}, {NOTE_G7, 8}, {NOTE_B5, 8}, {NOTE_D6, 8}
+    {NOTE_E4, 8}, {NOTE_A6, 3}, {NOTE_C5, 6}, {NOTE_F6, 8},
+    {NOTE_G4, 4}, {NOTE_B6, 6}, {NOTE_D5, 8}, {NOTE_E6, 4},
+    {NOTE_A4, 6}, {NOTE_C7, 3}, {NOTE_F5, 8}, {NOTE_G6, 6},
+    {NOTE_B4, 4}, {NOTE_D7, 6}, {NOTE_E5, 8}, {NOTE_A6, 3},
+    {NOTE_C4, 6}, {NOTE_F7, 4}, {NOTE_G5, 8}, {NOTE_B6, 6},
+    {NOTE_D4, 3}, {NOTE_E7, 6}, {NOTE_A5, 8}, {NOTE_C6, 4},
+    {NOTE_F4, 6}, {NOTE_G7, 3}, {NOTE_B5, 8}, {NOTE_D6, 6}
 };
 
 const PROGMEM MusicNote level5_chorus[] = {
-    {NOTE_A4, 8}, {NOTE_F7, 8}, {NOTE_D5, 8}, {NOTE_B6, 8},
-    {NOTE_G4, 8}, {NOTE_E7, 8}, {NOTE_C6, 8}, {NOTE_A6, 8},
-    {NOTE_F5, 8}, {NOTE_D7, 8}, {NOTE_B4, 8}, {NOTE_G7, 8},
-    {NOTE_E5, 8}, {NOTE_C7, 8}, {NOTE_A5, 8}, {NOTE_F6, 8},
-    {NOTE_D4, 8}, {NOTE_B7, 8}, {NOTE_G5, 8}, {NOTE_E6, 8}
+    {NOTE_A4, 6}, {NOTE_F7, 3}, {NOTE_D5, 8}, {NOTE_B6, 4},
+    {NOTE_G4, 6}, {NOTE_E7, 3}, {NOTE_C6, 8}, {NOTE_A6, 6},
+    {NOTE_F5, 4}, {NOTE_D7, 6}, {NOTE_B4, 8}, {NOTE_G7, 3},
+    {NOTE_E5, 6}, {NOTE_C7, 4}, {NOTE_A5, 8}, {NOTE_F6, 6},
+    {NOTE_D4, 3}, {NOTE_B7, 6}, {NOTE_G5, 8}, {NOTE_E6, 4}
 };
 
 const PROGMEM MusicNote level5_hook[] = {
-    {NOTE_C5, 8}, {NOTE_A7, 8}, {NOTE_F4, 8}, {NOTE_D7, 8},
-    {NOTE_B5, 8}, {NOTE_G6, 8}, {NOTE_E4, 8}, {NOTE_C7, 8},
-    {NOTE_A5, 8}, {NOTE_F7, 8}, {NOTE_D4, 8}, {NOTE_B6, 8},
-    {NOTE_G5, 8}, {NOTE_E7, 8}
+    {NOTE_C5, 6}, {NOTE_A7, 3}, {NOTE_F4, 8}, {NOTE_D7, 4},
+    {NOTE_B5, 6}, {NOTE_G6, 3}, {NOTE_E4, 8}, {NOTE_C7, 6},
+    {NOTE_A5, 4}, {NOTE_F7, 6}, {NOTE_D4, 8}, {NOTE_B6, 3},
+    {NOTE_G5, 6}, {NOTE_E7, 4}
 };
 
 // ===== NIVEAU 6 - DIFFICILE =====
-// Notes rapides, grands sauts
+// Notes très rapides avec grands contrastes, grands sauts
 const PROGMEM MusicNote level6_intro[] = {
-    {NOTE_C4, 6}, {NOTE_G7, 6}, {NOTE_E4, 6}, {NOTE_C7, 6},
-    {NOTE_A4, 6}, {NOTE_F7, 6}, {NOTE_D4, 6}, {NOTE_B7, 6},
-    {NOTE_F4, 6}, {NOTE_D7, 6}, {NOTE_B4, 6}, {NOTE_A7, 6},
-    {NOTE_G4, 6}, {NOTE_E7, 6}, {NOTE_C5, 6}, {NOTE_G7, 6},
-    {NOTE_A5, 6}, {NOTE_C4, 6}, {NOTE_F5, 6}, {NOTE_B7, 6},
-    {NOTE_D5, 6}, {NOTE_F4, 6}, {NOTE_B5, 6}, {NOTE_E7, 6}
+    {NOTE_C4, 6}, {NOTE_G7, 2}, {NOTE_E4, 6}, {NOTE_C7, 3},
+    {NOTE_A4, 2}, {NOTE_F7, 6}, {NOTE_D4, 4}, {NOTE_B7, 2},
+    {NOTE_F4, 6}, {NOTE_D7, 2}, {NOTE_B4, 4}, {NOTE_A7, 6},
+    {NOTE_G4, 2}, {NOTE_E7, 4}, {NOTE_C5, 6}, {NOTE_G7, 2},
+    {NOTE_A5, 4}, {NOTE_C4, 6}, {NOTE_F5, 2}, {NOTE_B7, 4},
+    {NOTE_D5, 6}, {NOTE_F4, 2}, {NOTE_B5, 4}, {NOTE_E7, 6}
 };
 
 const PROGMEM MusicNote level6_verse[] = {
-    {NOTE_E4, 6}, {NOTE_B7, 6}, {NOTE_A4, 6}, {NOTE_D7, 6},
-    {NOTE_C4, 6}, {NOTE_G7, 6}, {NOTE_F5, 6}, {NOTE_A7, 6},
-    {NOTE_G4, 6}, {NOTE_C7, 6}, {NOTE_B5, 6}, {NOTE_E7, 6},
-    {NOTE_D4, 6}, {NOTE_F7, 6}, {NOTE_A5, 6}, {NOTE_B7, 6},
-    {NOTE_F4, 6}, {NOTE_E7, 6}, {NOTE_C6, 6}, {NOTE_G7, 6},
-    {NOTE_B4, 6}, {NOTE_D7, 6}, {NOTE_G5, 6}, {NOTE_A7, 6},
-    {NOTE_E5, 6}, {NOTE_C4, 6}, {NOTE_A6, 6}, {NOTE_F7, 6},
-    {NOTE_D6, 6}, {NOTE_G4, 6}, {NOTE_B6, 6}, {NOTE_E7, 6}
+    {NOTE_E4, 6}, {NOTE_B7, 1}, {NOTE_A4, 4}, {NOTE_D7, 2},
+    {NOTE_C4, 6}, {NOTE_G7, 1}, {NOTE_F5, 4}, {NOTE_A7, 2},
+    {NOTE_G4, 6}, {NOTE_C7, 1}, {NOTE_B5, 4}, {NOTE_E7, 2},
+    {NOTE_D4, 6}, {NOTE_F7, 1}, {NOTE_A5, 4}, {NOTE_B7, 2},
+    {NOTE_F4, 6}, {NOTE_E7, 1}, {NOTE_C6, 4}, {NOTE_G7, 2},
+    {NOTE_B4, 6}, {NOTE_D7, 1}, {NOTE_G5, 4}, {NOTE_A7, 2},
+    {NOTE_E5, 6}, {NOTE_C4, 1}, {NOTE_A6, 4}, {NOTE_F7, 2},
+    {NOTE_D6, 6}, {NOTE_G4, 1}, {NOTE_B6, 4}, {NOTE_E7, 2}
 };
 
 const PROGMEM MusicNote level6_chorus[] = {
-    {NOTE_F4, 6}, {NOTE_C8, 6}, {NOTE_A5, 6}, {NOTE_D7, 6},
-    {NOTE_C4, 6}, {NOTE_B7, 6}, {NOTE_G6, 6}, {NOTE_E7, 6},
-    {NOTE_D4, 6}, {NOTE_A7, 6}, {NOTE_F6, 6}, {NOTE_C7, 6},
-    {NOTE_B4, 6}, {NOTE_G7, 6}, {NOTE_E6, 6}, {NOTE_F7, 6},
-    {NOTE_A4, 6}, {NOTE_D8, 6}, {NOTE_C5, 6}, {NOTE_B7, 6},
-    {NOTE_G4, 6}, {NOTE_E8, 6}, {NOTE_F5, 6}, {NOTE_A7, 6}
+    {NOTE_F4, 4}, {NOTE_C8, 1}, {NOTE_A5, 6}, {NOTE_D7, 2},
+    {NOTE_C4, 4}, {NOTE_B7, 1}, {NOTE_G6, 6}, {NOTE_E7, 2},
+    {NOTE_D4, 4}, {NOTE_A7, 1}, {NOTE_F6, 6}, {NOTE_C7, 2},
+    {NOTE_B4, 4}, {NOTE_G7, 1}, {NOTE_E6, 6}, {NOTE_F7, 2},
+    {NOTE_A4, 4}, {NOTE_D8, 1}, {NOTE_C5, 6}, {NOTE_B7, 2},
+    {NOTE_G4, 4}, {NOTE_E8, 1}, {NOTE_F5, 6}, {NOTE_A7, 2}
 };
 
 const PROGMEM MusicNote level6_hook[] = {
-    {NOTE_E4, 6}, {NOTE_C8, 6}, {NOTE_B5, 6}, {NOTE_F7, 6},
-    {NOTE_G4, 6}, {NOTE_D8, 6}, {NOTE_A5, 6}, {NOTE_E7, 6},
-    {NOTE_C4, 6}, {NOTE_B7, 6}, {NOTE_F6, 6}, {NOTE_G7, 6},
-    {NOTE_D4, 6}, {NOTE_A8, 6}, {NOTE_E6, 6}, {NOTE_C7, 6}
+    {NOTE_E4, 4}, {NOTE_C8, 1}, {NOTE_B5, 6}, {NOTE_F7, 2},
+    {NOTE_G4, 4}, {NOTE_D8, 1}, {NOTE_A5, 6}, {NOTE_E7, 2},
+    {NOTE_C4, 4}, {NOTE_B7, 1}, {NOTE_F6, 6}, {NOTE_G7, 2},
+    {NOTE_D4, 4}, {NOTE_A8, 1}, {NOTE_E6, 6}, {NOTE_C7, 2}
 };
 
 // ===== NIVEAU 7 - TRÈS DIFFICILE =====
-// Notes très rapides, très grands sauts
+// Notes ultra-rapides avec patterns complexes, très grands sauts
 const PROGMEM MusicNote level7_intro[] = {
-    {NOTE_C4, 4}, {NOTE_A8, 4}, {NOTE_F4, 4}, {NOTE_D8, 4},
-    {NOTE_B4, 4}, {NOTE_G8, 4}, {NOTE_E4, 4}, {NOTE_C8, 4},
-    {NOTE_A4, 4}, {NOTE_F8, 4}, {NOTE_D4, 4}, {NOTE_B8, 4},
-    {NOTE_G4, 4}, {NOTE_E8, 4}, {NOTE_C5, 4}, {NOTE_A8, 4},
-    {NOTE_F5, 4}, {NOTE_C4, 4}, {NOTE_B5, 4}, {NOTE_G8, 4},
-    {NOTE_E5, 4}, {NOTE_D4, 4}, {NOTE_A6, 4}, {NOTE_F8, 4},
-    {NOTE_D6, 4}, {NOTE_B4, 4}, {NOTE_G6, 4}, {NOTE_E8, 4}
+    {NOTE_C4, 4}, {NOTE_A8, 1}, {NOTE_F4, 4}, {NOTE_D8, 2},
+    {NOTE_B4, 1}, {NOTE_G8, 4}, {NOTE_E4, 2}, {NOTE_C8, 1},
+    {NOTE_A4, 4}, {NOTE_F8, 1}, {NOTE_D4, 2}, {NOTE_B8, 4},
+    {NOTE_G4, 1}, {NOTE_E8, 2}, {NOTE_C5, 4}, {NOTE_A8, 1},
+    {NOTE_F5, 2}, {NOTE_C4, 4}, {NOTE_B5, 1}, {NOTE_G8, 2},
+    {NOTE_E5, 4}, {NOTE_D4, 1}, {NOTE_A6, 2}, {NOTE_F8, 4},
+    {NOTE_D6, 1}, {NOTE_B4, 2}, {NOTE_G6, 4}, {NOTE_E8, 1}
 };
 
 const PROGMEM MusicNote level7_verse[] = {
-    {NOTE_C4, 4}, {NOTE_B8, 4}, {NOTE_G5, 4}, {NOTE_E8, 4},
-    {NOTE_F4, 4}, {NOTE_C8, 4}, {NOTE_A6, 4}, {NOTE_F8, 4},
-    {NOTE_D4, 4}, {NOTE_A8, 4}, {NOTE_B6, 4}, {NOTE_G8, 4},
-    {NOTE_E4, 4}, {NOTE_D8, 4}, {NOTE_C7, 4}, {NOTE_A8, 4},
-    {NOTE_A4, 4}, {NOTE_F8, 4}, {NOTE_D7, 4}, {NOTE_B8, 4},
-    {NOTE_B4, 4}, {NOTE_G8, 4}, {NOTE_E7, 4}, {NOTE_C8, 4},
-    {NOTE_C5, 4}, {NOTE_A8, 4}, {NOTE_F7, 4}, {NOTE_D8, 4},
-    {NOTE_G4, 4}, {NOTE_E8, 4}, {NOTE_A7, 4}, {NOTE_F8, 4},
-    {NOTE_F5, 4}, {NOTE_C4, 4}, {NOTE_B7, 4}, {NOTE_G8, 4},
-    {NOTE_E6, 4}, {NOTE_D4, 4}, {NOTE_G7, 4}, {NOTE_A8, 4}
+    {NOTE_C4, 4}, {NOTE_B8, 1}, {NOTE_G5, 2}, {NOTE_E8, 4},
+    {NOTE_F4, 1}, {NOTE_C8, 4}, {NOTE_A6, 2}, {NOTE_F8, 1},
+    {NOTE_D4, 4}, {NOTE_A8, 1}, {NOTE_B6, 2}, {NOTE_G8, 4},
+    {NOTE_E4, 1}, {NOTE_D8, 2}, {NOTE_C7, 4}, {NOTE_A8, 1},
+    {NOTE_A4, 2}, {NOTE_F8, 4}, {NOTE_D7, 1}, {NOTE_B8, 2},
+    {NOTE_B4, 4}, {NOTE_G8, 1}, {NOTE_E7, 2}, {NOTE_C8, 4},
+    {NOTE_C5, 1}, {NOTE_A8, 2}, {NOTE_F7, 4}, {NOTE_D8, 1},
+    {NOTE_G4, 2}, {NOTE_E8, 4}, {NOTE_A7, 1}, {NOTE_F8, 2},
+    {NOTE_F5, 4}, {NOTE_C4, 1}, {NOTE_B7, 2}, {NOTE_G8, 4},
+    {NOTE_E6, 1}, {NOTE_D4, 2}, {NOTE_G7, 4}, {NOTE_A8, 1}
 };
 
 const PROGMEM MusicNote level7_chorus[] = {
-    {NOTE_D4, 4}, {NOTE_C9, 4}, {NOTE_A5, 4}, {NOTE_F8, 4},
-    {NOTE_E4, 4}, {NOTE_B8, 4}, {NOTE_C6, 4}, {NOTE_G8, 4},
-    {NOTE_F4, 4}, {NOTE_A8, 4}, {NOTE_D6, 4}, {NOTE_E8, 4},
-    {NOTE_G4, 4}, {NOTE_C8, 4}, {NOTE_E6, 4}, {NOTE_D8, 4},
-    {NOTE_A4, 4}, {NOTE_F9, 4}, {NOTE_F6, 4}, {NOTE_B8, 4},
-    {NOTE_B4, 4}, {NOTE_G9, 4}, {NOTE_G6, 4}, {NOTE_A8, 4},
-    {NOTE_C5, 4}, {NOTE_E9, 4}, {NOTE_A6, 4}, {NOTE_C8, 4}
+    {NOTE_D4, 2}, {NOTE_C9, 1}, {NOTE_A5, 4}, {NOTE_F8, 2},
+    {NOTE_E4, 1}, {NOTE_B8, 4}, {NOTE_C6, 2}, {NOTE_G8, 1},
+    {NOTE_F4, 4}, {NOTE_A8, 1}, {NOTE_D6, 2}, {NOTE_E8, 4},
+    {NOTE_G4, 1}, {NOTE_C8, 2}, {NOTE_E6, 4}, {NOTE_D8, 1},
+    {NOTE_A4, 2}, {NOTE_F9, 1}, {NOTE_F6, 4}, {NOTE_B8, 2},
+    {NOTE_B4, 1}, {NOTE_G9, 4}, {NOTE_G6, 2}, {NOTE_A8, 1},
+    {NOTE_C5, 4}, {NOTE_E9, 1}, {NOTE_A6, 2}, {NOTE_C8, 4}
 };
 
 const PROGMEM MusicNote level7_hook[] = {
-    {NOTE_E4, 4}, {NOTE_G9, 4}, {NOTE_B6, 4}, {NOTE_D8, 4},
-    {NOTE_F4, 4}, {NOTE_A9, 4}, {NOTE_C7, 4}, {NOTE_E8, 4},
-    {NOTE_G4, 4}, {NOTE_F9, 4}, {NOTE_D7, 4}, {NOTE_B8, 4},
-    {NOTE_A4, 4}, {NOTE_C9, 4}, {NOTE_E7, 4}, {NOTE_G8, 4},
-    {NOTE_C4, 4}, {NOTE_B9, 4}, {NOTE_F7, 4}, {NOTE_A8, 4},
-    {NOTE_D4, 4}, {NOTE_E9, 4}, {NOTE_G7, 4}, {NOTE_F8, 4}
+    {NOTE_E4, 2}, {NOTE_G9, 1}, {NOTE_B6, 4}, {NOTE_D8, 2},
+    {NOTE_F4, 1}, {NOTE_A9, 4}, {NOTE_C7, 2}, {NOTE_E8, 1},
+    {NOTE_G4, 4}, {NOTE_F9, 1}, {NOTE_D7, 2}, {NOTE_B8, 4},
+    {NOTE_A4, 1}, {NOTE_C9, 2}, {NOTE_E7, 4}, {NOTE_G8, 1},
+    {NOTE_C4, 2}, {NOTE_B9, 1}, {NOTE_F7, 4}, {NOTE_A8, 2},
+    {NOTE_D4, 1}, {NOTE_E9, 4}, {NOTE_G7, 2}, {NOTE_F8, 1}
 };
 
 // ===== NIVEAU 8 - EXPERT =====
-// Notes ultra-rapides, sauts extrêmes
+// Patterns rythmiques complexes avec contrastes extrêmes
 const PROGMEM MusicNote level8_intro[] = {
-    {NOTE_C4, 2}, {NOTE_B9, 2}, {NOTE_E4, 2}, {NOTE_A9, 2},
-    {NOTE_G4, 2}, {NOTE_F9, 2}, {NOTE_C4, 2}, {NOTE_G9, 2},
-    {NOTE_F4, 2}, {NOTE_D9, 2}, {NOTE_A4, 2}, {NOTE_E9, 2},
-    {NOTE_D4, 2}, {NOTE_C9, 2}, {NOTE_B4, 2}, {NOTE_F9, 2},
-    {NOTE_G4, 2}, {NOTE_A9, 2}, {NOTE_E4, 2}, {NOTE_B9, 2},
-    {NOTE_C5, 2}, {NOTE_G9, 2}, {NOTE_A4, 2}, {NOTE_D9, 2},
-    {NOTE_F5, 2}, {NOTE_E9, 2}, {NOTE_D4, 2}, {NOTE_C9, 2},
-    {NOTE_B5, 2}, {NOTE_F9, 2}, {NOTE_G4, 2}, {NOTE_A9, 2},
-    {NOTE_E6, 2}, {NOTE_B9, 2}, {NOTE_C4, 2}, {NOTE_G9, 2}
+    {NOTE_C4, 2}, {NOTE_B9, 1}, {NOTE_E4, 3}, {NOTE_A9, 1},
+    {NOTE_G4, 2}, {NOTE_F9, 1}, {NOTE_C4, 3}, {NOTE_G9, 1},
+    {NOTE_F4, 2}, {NOTE_D9, 1}, {NOTE_A4, 3}, {NOTE_E9, 1},
+    {NOTE_D4, 2}, {NOTE_C9, 1}, {NOTE_B4, 3}, {NOTE_F9, 1},
+    {NOTE_G4, 2}, {NOTE_A9, 1}, {NOTE_E4, 3}, {NOTE_B9, 1},
+    {NOTE_C5, 2}, {NOTE_G9, 1}, {NOTE_A4, 3}, {NOTE_D9, 1},
+    {NOTE_F5, 2}, {NOTE_E9, 1}, {NOTE_D4, 3}, {NOTE_C9, 1},
+    {NOTE_B5, 2}, {NOTE_F9, 1}, {NOTE_G4, 3}, {NOTE_A9, 1},
+    {NOTE_E6, 2}, {NOTE_B9, 1}, {NOTE_C4, 3}, {NOTE_G9, 1}
 };
 
 const PROGMEM MusicNote level8_verse[] = {
-    {NOTE_F4, 2}, {NOTE_G9, 2}, {NOTE_C7, 2}, {NOTE_D9, 2},
-    {NOTE_A4, 2}, {NOTE_F9, 2}, {NOTE_D7, 2}, {NOTE_A9, 2},
-    {NOTE_B4, 2}, {NOTE_E9, 2}, {NOTE_E7, 2}, {NOTE_B9, 2},
-    {NOTE_C4, 2}, {NOTE_C9, 2}, {NOTE_F7, 2}, {NOTE_E9, 2},
-    {NOTE_G4, 2}, {NOTE_A9, 2}, {NOTE_G7, 2}, {NOTE_F9, 2},
-    {NOTE_D4, 2}, {NOTE_B9, 2}, {NOTE_A7, 2}, {NOTE_G9, 2},
-    {NOTE_E4, 2}, {NOTE_D9, 2}, {NOTE_B7, 2}, {NOTE_A9, 2},
-    {NOTE_F5, 2}, {NOTE_E9, 2}, {NOTE_C8, 2}, {NOTE_B9, 2},
-    {NOTE_A5, 2}, {NOTE_F9, 2}, {NOTE_D8, 2}, {NOTE_C9, 2},
-    {NOTE_B5, 2}, {NOTE_G9, 2}, {NOTE_E8, 2}, {NOTE_D9, 2},
-    {NOTE_C6, 2}, {NOTE_A9, 2}, {NOTE_F8, 2}, {NOTE_E9, 2},
-    {NOTE_G6, 2}, {NOTE_B9, 2}, {NOTE_G8, 2}, {NOTE_F9, 2}
+    {NOTE_F4, 1}, {NOTE_G9, 2}, {NOTE_C7, 1}, {NOTE_D9, 3},
+    {NOTE_A4, 2}, {NOTE_F9, 1}, {NOTE_D7, 1}, {NOTE_A9, 2},
+    {NOTE_B4, 1}, {NOTE_E9, 3}, {NOTE_E7, 2}, {NOTE_B9, 1},
+    {NOTE_C4, 1}, {NOTE_C9, 2}, {NOTE_F7, 1}, {NOTE_E9, 3},
+    {NOTE_G4, 2}, {NOTE_A9, 1}, {NOTE_G7, 1}, {NOTE_F9, 2},
+    {NOTE_D4, 1}, {NOTE_B9, 3}, {NOTE_A7, 2}, {NOTE_G9, 1},
+    {NOTE_E4, 1}, {NOTE_D9, 2}, {NOTE_B7, 1}, {NOTE_A9, 3},
+    {NOTE_F5, 2}, {NOTE_E9, 1}, {NOTE_C8, 1}, {NOTE_B9, 2},
+    {NOTE_A5, 1}, {NOTE_F9, 3}, {NOTE_D8, 2}, {NOTE_C9, 1},
+    {NOTE_B5, 1}, {NOTE_G9, 2}, {NOTE_E8, 1}, {NOTE_D9, 3},
+    {NOTE_C6, 2}, {NOTE_A9, 1}, {NOTE_F8, 1}, {NOTE_E9, 2},
+    {NOTE_G6, 1}, {NOTE_B9, 3}, {NOTE_G8, 2}, {NOTE_F9, 1}
 };
 
 const PROGMEM MusicNote level8_chorus[] = {
-    {NOTE_D4, 2}, {NOTE_A9, 2}, {NOTE_A8, 2}, {NOTE_G9, 2},
-    {NOTE_E4, 2}, {NOTE_B9, 2}, {NOTE_B8, 2}, {NOTE_A9, 2},
-    {NOTE_F4, 2}, {NOTE_C9, 2}, {NOTE_C9, 2}, {NOTE_B9, 2},
-    {NOTE_G4, 2}, {NOTE_D9, 2}, {NOTE_D9, 2}, {NOTE_C9, 2},
-    {NOTE_A4, 2}, {NOTE_E9, 2}, {NOTE_E9, 2}, {NOTE_D9, 2},
-    {NOTE_B4, 2}, {NOTE_F9, 2}, {NOTE_F9, 2}, {NOTE_E9, 2},
-    {NOTE_C5, 2}, {NOTE_G9, 2}, {NOTE_G9, 2}, {NOTE_F9, 2},
-    {NOTE_D5, 2}, {NOTE_A9, 2}, {NOTE_A9, 2}, {NOTE_G9, 2}
+    {NOTE_D4, 1}, {NOTE_A9, 2}, {NOTE_A8, 1}, {NOTE_G9, 3},
+    {NOTE_E4, 2}, {NOTE_B9, 1}, {NOTE_B8, 1}, {NOTE_A9, 2},
+    {NOTE_F4, 1}, {NOTE_C9, 3}, {NOTE_C9, 2}, {NOTE_B9, 1},
+    {NOTE_G4, 1}, {NOTE_D9, 2}, {NOTE_D9, 1}, {NOTE_C9, 3},
+    {NOTE_A4, 2}, {NOTE_E9, 1}, {NOTE_E9, 1}, {NOTE_D9, 2},
+    {NOTE_B4, 1}, {NOTE_F9, 3}, {NOTE_F9, 2}, {NOTE_E9, 1},
+    {NOTE_C5, 1}, {NOTE_G9, 2}, {NOTE_G9, 1}, {NOTE_F9, 3},
+    {NOTE_D5, 2}, {NOTE_A9, 1}, {NOTE_A9, 1}, {NOTE_G9, 2}
 };
 
 const PROGMEM MusicNote level8_hook[] = {
-    {NOTE_E5, 2}, {NOTE_B9, 2}, {NOTE_B9, 2}, {NOTE_A9, 2},
-    {NOTE_F5, 2}, {NOTE_C9, 2}, {NOTE_C9, 2}, {NOTE_B9, 2},
-    {NOTE_G5, 2}, {NOTE_D9, 2}, {NOTE_D9, 2}, {NOTE_C9, 2},
-    {NOTE_A5, 2}, {NOTE_E9, 2}, {NOTE_E9, 2}, {NOTE_D9, 2},
-    {NOTE_B5, 2}, {NOTE_F9, 2}, {NOTE_F9, 2}, {NOTE_E9, 2},
-    {NOTE_C6, 2}, {NOTE_G9, 2}, {NOTE_G9, 2}, {NOTE_F9, 2}
+    {NOTE_E5, 1}, {NOTE_B9, 2}, {NOTE_B9, 1}, {NOTE_A9, 3},
+    {NOTE_F5, 2}, {NOTE_C9, 1}, {NOTE_C9, 1}, {NOTE_B9, 2},
+    {NOTE_G5, 1}, {NOTE_D9, 3}, {NOTE_D9, 2}, {NOTE_C9, 1},
+    {NOTE_A5, 1}, {NOTE_E9, 2}, {NOTE_E9, 1}, {NOTE_D9, 3},
+    {NOTE_B5, 2}, {NOTE_F9, 1}, {NOTE_F9, 1}, {NOTE_E9, 2},
+    {NOTE_C6, 1}, {NOTE_G9, 3}, {NOTE_G9, 2}, {NOTE_F9, 1}
 };
 
 // ===== NIVEAU 9 - IMPOSSIBLE =====

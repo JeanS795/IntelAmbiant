@@ -5,6 +5,9 @@
 #include "definitions.h"
 // je suis michel
 
+// CORRECTION CRITIQUE: Déclaration de la variable persistante pour le niveau
+extern uint8_t persistentSelectedLevel;
+
 // Variable globale pour signaler la réinitialisation du bouton après changement d'état
 bool needButtonReset = false;
 
@@ -211,14 +214,14 @@ void periodicFunction() {
         } else {
           newLevel = 1; // niveau 1 pour 912-1023 (112 valeurs)
         }
-        
-        // Mettre à jour seulement si le niveau a changé
+          // Mettre à jour seulement si le niveau a changé
         if (newLevel != menuState.selectedLevel) {
           // Effacer l'ancien chiffre
           eraseMenuDigit(menuState.selectedLevel);
           
-          // Mettre à jour le niveau sélectionné
+          // Mettre à jour le niveau sélectionné dans les deux variables
           menuState.selectedLevel = newLevel;
+          persistentSelectedLevel = newLevel; // CORRECTION: Sauvegarder dans la variable persistante
           gameState.level = newLevel; // Synchroniser avec l'état du jeu
           
           // Dessiner le nouveau chiffre
@@ -1277,7 +1280,18 @@ void handleLevelState() {
     }
   }
   
-    if (!levelInitialized) {    // Initialiser le niveau
+  if (!levelInitialized) {
+    // CORRECTION CRITIQUE: Vérifier et restaurer le niveau correct si nécessaire
+    if (gameState.level == 0 || gameState.level > 9) {
+      gameState.level = (persistentSelectedLevel > 0 && persistentSelectedLevel <= 9) ? 
+                        persistentSelectedLevel : 1;
+#if DEBUG_SERIAL
+      Serial.print("CORRECTION: Niveau restauré à ");
+      Serial.println(gameState.level);
+#endif
+    }
+    
+    // Initialiser le niveau
     setDifficultyLevel(gameState.level);
     gameState.timeStart = millis();
     
@@ -1838,11 +1852,23 @@ void handleLevelLoop() {
 
 // Initialiser l'état du menu
 void initMenuState() {
-  menuState.selectedLevel = 1;
+  // CORRECTION CRITIQUE: Récupérer le niveau depuis la variable persistante si disponible
+  uint8_t levelToUse = (persistentSelectedLevel > 0 && persistentSelectedLevel <= 9) ? 
+                       persistentSelectedLevel : 1;
+  
+  menuState.selectedLevel = levelToUse;
+  persistentSelectedLevel = levelToUse; // S'assurer que les deux sont synchronisées
+  gameState.level = levelToUse; // Synchroniser avec l'état du jeu
+  
   menuState.boxVisible = true;
   menuState.lastBlinkTime = 0;
   menuState.validationMode = false;
   menuState.validationStart = 0;
+  
+#if DEBUG_SERIAL
+  Serial.print("Menu init: niveau sélectionné = ");
+  Serial.println(levelToUse);
+#endif
 }
 
 // Dessiner le texte "MENU" statique
@@ -1915,9 +1941,25 @@ void updateMenuValidation() {
   if (!menuState.validationMode) return;
   
   uint32_t currentTime = millis();
-  
-  // Clignoter pendant 1 seconde puis changer d'état
+    // Clignoter pendant 1 seconde puis changer d'état
   if (currentTime - menuState.validationStart > 1000) {
+    // CORRECTION CRITIQUE: S'assurer que le niveau sélectionné est transféré correctement
+    // Utiliser la variable persistante comme référence de vérité
+    uint8_t levelToUse = (menuState.selectedLevel > 0 && menuState.selectedLevel <= 9) ? 
+                         menuState.selectedLevel : persistentSelectedLevel;
+    gameState.level = levelToUse;
+    
+#if DEBUG_SERIAL
+    Serial.print("Transition MENU->LEVEL: niveau ");
+    Serial.print(levelToUse);
+    Serial.print(" (menu:");
+    Serial.print(menuState.selectedLevel);
+    Serial.print(" persistent:");
+    Serial.print(persistentSelectedLevel);
+    Serial.print(") transféré vers gameState.level = ");
+    Serial.println(gameState.level);
+#endif
+    
     changeGameState(GAME_STATE_LEVEL);
     menuState.validationMode = false;
     return;

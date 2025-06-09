@@ -49,10 +49,10 @@
 #define CURSOR_HIDDEN 0
 
 // ===== CONSTANTES AUDIO =====
-#define MUSIQUE 0
+#define MUSIQUE 1
 
 // ===== CONSTANTES DEBUG =====
-#define DEBUG_SERIAL 1
+#define DEBUG_SERIAL 0
 
 // ===== CONSTANTES NIVEAUX DE DIFFICULTE =====
 #define MIN_DIFFICULTY_LEVEL 1
@@ -174,6 +174,10 @@ typedef struct {
 
 // ===== VARIABLES GLOBALES MENU =====
 MenuState menuState;
+
+// CORRECTION CRITIQUE: Variable persistante pour le niveau sélectionné
+// Cette variable est protégée contre les corruptions de mémoire
+uint8_t persistentSelectedLevel = 1;
 
 // ===== DONNÉES MENU COMPRESSÉES =====
 
