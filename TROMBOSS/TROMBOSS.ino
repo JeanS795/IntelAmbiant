@@ -3,57 +3,291 @@
 #include "song_patterns.h"
 #include "TimerOne.h"
 #include "definitions.h"
-
 // je suis michel
 
-// Compteur pour la fonction périodique
-volatile uint16_t periodicCounter = 0;
+//======== SETUP ========
+void setup() {
+  // Réactiver Serial pour le débogage
+#if DEBUG_SERIAL
+  Serial.begin(9600);
+  Serial.println("=== TROMBOSS ===");
+#endif
+  
+  // Initialisation de la matrice LED
+  Wire.begin();
+  ht1632_setup();
+  setup7Seg();
+  ht1632_clear();
+    // Initialiser l'état du jeu
+  initGameState();
+  
+  // Configuration du bouton en entrée avec pull-up interne
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  
+  // Initialiser le curseur
+  cursor.y = 0;
+  cursor.yDisplayed = 0;
+  cursor.yLast = 0;
+  cursor.state = CURSOR_STATE_NORMAL;
+  cursor.visible = CURSOR_VISIBLE;
+  cursor.color = CURSOR_COLOR;
+  cursor.potValue = 0;
+  cursor.lastBlinkTime = 0;
+    // Initialiser les blocs
+  for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+    blocks[i].active = 0;
+    blocks[i].color = BLOCK_COLOR;
+    blocks[i].needsUpdate = 0;
+    blocks[i].hitPixels = 0;  // Aucun pixel touché initialement
+    blockNotePlaying[i] = false;
+  }
+  
+  // Initialiser les flags d'affichage
+  displayNeedsUpdate = true;
+  shouldShowCursor = true;
 
-// Déclaration des variables globales définies dans definitions.h
-Cursor cursor;
-Block blocks[MAX_BLOCKS];
-volatile bool displayNeedsUpdate = false;
-volatile bool shouldShowCursor = true;
+#if MUSIQUE
+  pinMode(BUZZER_PIN, OUTPUT);
+#endif
+  
+  // Initialiser le Timer1 pour appeler periodicFunction toutes les 25ms
+  Timer1.initialize(TIMER_PERIOD);
+  Timer1.attachInterrupt(periodicFunction);
+  
+  // Réinitialiser le compteur périodique
+  periodicCounter = 0;
+  periodicCounter = 0;
+}
 
-// Variables pour le contrôle des blocs et la déduplication
-uint8_t songPosition = 0;
-uint8_t currentSongPart = 0;
-uint8_t songFinished = 0;
-uint8_t lastNoteFrequency = 0;
-bool lastNoteStillActive = false;
-bool blockNotePlaying[MAX_BLOCKS] = {0};
-uint8_t lastNotePosition = 255;
+//======== LOOP PRINCIPAL ========
+void loop() {
+  // Mise à jour de l'affichage 7 segments - optimisée pour réduire les blocages I2C
+  static unsigned long last7SegUpdate = 0;
+  unsigned long currentTime = millis();
 
-// Variables pour le système de niveaux
-uint8_t currentDifficultyLevel = DEFAULT_DIFFICULTY_LEVEL;
-uint8_t blockMoveCycles = BLOCK_MOVE_CYCLES_LEVEL_6;
+  // Réduire la fréquence des vérifications pour les mises à jour 7seg pendant le jeu
+  unsigned long updateInterval = (gameState.etat == GAME_STATE_LEVEL) ? 200 : 500; // 200ms en jeu, 500ms ailleurs
+  
+  if (currentTime - last7SegUpdate >= updateInterval) {
+    update7SegDisplay(gameState.etat, gameScore.transformed, gameState.level);
+    last7SegUpdate = currentTime;
+  }
+  
+  // Machine à états pour gérer les différents états du jeu
+  switch (gameState.etat) {
+    case GAME_STATE_MENU:
+      handleMenuState();
+      break;
+      
+    case GAME_STATE_LEVEL:
+      handleLevelState();
+      break;
+      
+    case GAME_STATE_WIN:
+      handleWinState();
+      break;
+      
+    case GAME_STATE_LOSE:
+      handleLoseState();
+      break;
+      
+    default:
+      // État invalide, retourner au menu
+      Serial.println("État invalide");
+      changeGameState(GAME_STATE_MENU);
+      break;
+  }
+}
 
-// Variable principale de l'état du jeu
-GameState gameState;
+//======== FONCTION PÉRIODIQUE ========
+void periodicFunction() {
+  // Incrémenter le compteur périodique
+  periodicCounter++;
+    // Note: L'affichage 7 segments est maintenant géré dans loop() pour éviter le blocage I2C dans l'interruption
+    // Lecture du bouton (4 fois par seconde = tous les 10 cycles)
+  if (periodicCounter % 10 == 0) {
+    static bool lastButtonState = HIGH;
+    bool buttonState = digitalRead(BUTTON_PIN);
+    
+    // Gestion du bouton avec anti-rebond logiciel
+    if (buttonState != lastButtonState) {
+      if (buttonState == LOW) {
+        // Bouton pressé
+        if (gameState.etat == GAME_STATE_MENU) {
+          // Dans le menu, changer vers l'état de jeu
+          changeGameState(GAME_STATE_LEVEL);
+        } else if (gameState.etat == GAME_STATE_LEVEL) {
+          // Dans le jeu, activer le clignotement du curseur
+          cursor.state = CURSOR_STATE_BLINKING;
+        }
+      } else {
+        // Bouton relâché
+        if (gameState.etat == GAME_STATE_LEVEL) {
+          cursor.state = CURSOR_STATE_NORMAL;
+          shouldShowCursor = true; // Toujours visible quand on relâche le bouton
+        }
+      }
+      lastButtonState = buttonState;
+      displayNeedsUpdate = true;
+    }
+  }
+    // Lecture du potentiomètre (10 fois par seconde = tous les 4 cycles)
+  if (periodicCounter % 4 == 0) {
+    if (digitalRead(BUTTON_PIN) == HIGH) {
+      // Lire la valeur actuelle du potentiomètre
+      int newPotValue = analogRead(POT_PIN);
+      
+      // Ne mettre à jour que si la valeur a suffisamment changé (évite les micro-variations)
+      if (abs(newPotValue - cursor.potValue) > 5) {
+        cursor.potValue = newPotValue;
+        int y = map(cursor.potValue, 0, 1024, 0, MATRIX_HEIGHT - 1);
+        if (y < 0) y = 0;
+        if (y > MATRIX_HEIGHT - 2) y = MATRIX_HEIGHT - 2;
+        
+        // N'actualiser que si la position a réellement changé
+        if (cursor.y != (uint8_t)y) {
+          cursor.y = (uint8_t)y;
+          displayNeedsUpdate = true;
+        }
+      }
+    }
+  }    // Gestion du clignotement du curseur (5 fois par seconde = tous les 8 cycles)
+  if (periodicCounter % 8 == 0) {
+    if (cursor.state == CURSOR_STATE_BLINKING) {
+      shouldShowCursor = !shouldShowCursor; // Inverser l'état d'affichage du curseur
+      displayNeedsUpdate = true;
+      
+      // Vérifier les collisions pendant le clignotement (seulement dans l'état LEVEL)
+      if (gameState.etat == GAME_STATE_LEVEL) {
+        checkCursorCollision();
+      }
+    } else if (!shouldShowCursor) {
+      shouldShowCursor = true; // S'assurer que le curseur est visible si pas en mode clignotement
+      displayNeedsUpdate = true;
+    }
+  }
+  
+  // Déplacement du curseur (tous les cycles, mais progressif)
+  if (cursor.yDisplayed < cursor.y) {
+    cursor.yDisplayed++;
+    displayNeedsUpdate = true;
+  } else if (cursor.yDisplayed > cursor.y) {
+    cursor.yDisplayed--;
+    displayNeedsUpdate = true;
+  }  // Déplacement des blocs - fréquence selon le niveau de difficulté
+  // Seulement si on est dans l'état LEVEL
+  if (gameState.etat == GAME_STATE_LEVEL && periodicCounter % blockMoveCycles == 0) {
+    // Déterminer le bloc prioritaire (le plus à gauche) qui occupe x=2 ou x=3
+    int8_t blockToPlay = -1;
+    int16_t minX = 1000;
+    
+    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+      if (blocks[i].active) {
+        int16_t xStart = blocks[i].x;
+        int16_t xEnd = xStart + blocks[i].length;
+        
+        // Le bloc occupe-t-il x=2 ou x=3 ?
+        if ((2 >= xStart && 2 < xEnd) || (3 >= xStart && 3 < xEnd)) {
+          if (xStart < minX) {
+            minX = xStart;
+            blockToPlay = i;
+          }
+        }
+      }
+    }
+    
+    // Gestion du buzzer : marquer les blocs qui doivent jouer une note
+    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+      if (blocks[i].active) {
+        int16_t xStart = blocks[i].x;
+        int16_t xEnd = xStart + blocks[i].length;
+        bool onGreen = (2 >= xStart && 2 < xEnd) || (3 >= xStart && 3 < xEnd);
+        
+        if (onGreen && i == blockToPlay) {
+          blockNotePlaying[i] = true;
+        } else {
+          blockNotePlaying[i] = false;
+        }
+      } else {
+        blockNotePlaying[i] = false;
+      }
+    }
+      // Effectuer le déplacement des blocs (Phase 1 - calculs uniquement)
+    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+      if (blocks[i].active) {
+        // Sauvegarder l'ancienne position avant de mettre à jour
+        blocks[i].oldX = blocks[i].x;
+        
+        // Déplacer le bloc
+        blocks[i].x--;        // Nouvelle logique : ajouter 2 pixels au score max pour chaque colonne qui passe x=3
+        // (c'est-à-dire quand chaque colonne passe de x=4 à x=3)
+        int16_t oldEnd = blocks[i].oldX + blocks[i].length - 1;  // Dernière colonne à l'ancienne position
+        int16_t newEnd = blocks[i].x + blocks[i].length - 1;     // Dernière colonne à la nouvelle position
+        
+        // Pour chaque colonne du bloc, vérifier si elle vient de passer x=3
+        for (int16_t col = blocks[i].oldX; col <= oldEnd; col++) {
+          // Cette colonne était-elle à x=4 et est maintenant à x=3 ?
+          int16_t newCol = col - 1; // Position après déplacement
+          if (col == 4 && newCol == 3) {
+            // Cette colonne vient de passer la deuxième colonne verte (x=3)
+            // Ajouter 2 pixels (hauteur du bloc = 2) au score maximum
+            addMaxScore(2);
+#if DEBUG_SERIAL
+            Serial.print("Col x=3 bloc ");
+            Serial.print(i);
+            Serial.println(" - Smax +2");
+#endif
+          }
+        }
+        
+        // Vérifier si le bloc est complètement sorti de l'écran
+        if (blocks[i].x + blocks[i].length < -1) {
+          // Le bloc est complètement sorti de l'écran, le désactiver
+          blocks[i].active = 0;
+          blockNotePlaying[i] = false;
+        }
+        
+        blocks[i].needsUpdate = 1; // Marquer le bloc pour affichage
+        displayNeedsUpdate = true; // Indiquer que l'affichage doit être mis à jour
+      }
+    }
+  }
+    // Création de nouvelles notes (1 fois par seconde = tous les 40 cycles)
+  // Seulement si on est dans l'état LEVEL
+  if (gameState.etat == GAME_STATE_LEVEL && periodicCounter % 40 == 0) {
+    if (!songFinished) {
+      static bool noteCreationInProgress = false;
+      
+      if (!noteCreationInProgress) {
+        noteCreationInProgress = true;
+        nextNote();
+        noteCreationInProgress = false;
+        displayNeedsUpdate = true;
+      }
+    }
+  
+    
+    // Gestion de la fin de séquence musicale (toutes les 2 secondes = tous les 80 cycles)
+    if (songFinished && periodicCounter % 80 == 0) {
+      bool allBlocksInactive = true;
+      
+      for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+        if (blocks[i].active) {
+          allBlocksInactive = false;
+          break;
+        }
+      }
+      
+      if (allBlocksInactive) {
+        songFinished = 0;
+        currentSongPart = 0;
+        songPosition = 0;
+      }
+    }
+  }
+}
 
-// Variable de score
-Score gameScore;
-
-// ===== VARIABLES D'OPTIMISATION AFFICHAGE 7 SEGMENTS =====
-uint8_t last7SegScore = 255;        // Dernier score affiché (255 = non initialisé)
-uint8_t last7SegLevel = 255;        // Dernier niveau affiché (255 = non initialisé)
-uint8_t last7SegGameState = 255;    // Dernier état de jeu affiché (255 = non initialisé)
-bool menu7SegInitialized = false;   // Flag pour savoir si le menu a été initialisé sur 7seg
-
-// ===== ADRESSES DES AFFICHEURS 7 SEGMENTS =====
-// Organisation des afficheurs :
-// A1 (niveau) = 0x23
-// A2 (non utilisé) = 0x22  
-// A3 (dizaine score) = 0x21
-// A4 (unité score) = 0x20
-const uint8_t A1_ADDR = 0x23;
-const uint8_t A2_ADDR = 0x22;
-const uint8_t A3_ADDR = 0x21;
-const uint8_t A4_ADDR = 0x20;
-
-// ===== FONCTIONS AFFICHAGE 7 SEGMENTS =====
-
-// Fonction pour afficher un chiffre sur un afficheur 7 segments spécifique
+// ===== IMPLÉMENTATIONS DES FONCTIONS =====
 void display7Seg(uint8_t address, uint8_t digit) {
     if (digit > 9) return; // Protection contre les valeurs invalides
     
@@ -65,8 +299,6 @@ void display7Seg(uint8_t address, uint8_t digit) {
     Wire.write(Tab7Segts[digit]);       // set register value to display digit
     Wire.endTransmission();
 }
-
-
 
 // Fonction pour afficher le score transformé (pourcentage) sur A4 et A3
 void displayScore(uint8_t transformedScore) {
@@ -1191,59 +1423,6 @@ void checkCursorCollision() {
   }
 }
 
-void setup() {
-  // Réactiver Serial pour le débogage
-#if DEBUG_SERIAL
-  Serial.begin(9600);
-  Serial.println("=== TROMBOSS ===");
-#endif
-  
-  // Initialisation de la matrice LED
-  Wire.begin();
-  ht1632_setup();
-  setup7Seg();
-  ht1632_clear();
-    // Initialiser l'état du jeu
-  initGameState();
-  
-  // Configuration du bouton en entrée avec pull-up interne
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-  
-  // Initialiser le curseur
-  cursor.y = 0;
-  cursor.yDisplayed = 0;
-  cursor.yLast = 0;
-  cursor.state = CURSOR_STATE_NORMAL;
-  cursor.visible = CURSOR_VISIBLE;
-  cursor.color = CURSOR_COLOR;
-  cursor.potValue = 0;
-  cursor.lastBlinkTime = 0;
-    // Initialiser les blocs
-  for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-    blocks[i].active = 0;
-    blocks[i].color = BLOCK_COLOR;
-    blocks[i].needsUpdate = 0;
-    blocks[i].hitPixels = 0;  // Aucun pixel touché initialement
-    blockNotePlaying[i] = false;
-  }
-  
-  // Initialiser les flags d'affichage
-  displayNeedsUpdate = true;
-  shouldShowCursor = true;
-
-#if MUSIQUE
-  pinMode(BUZZER_PIN, OUTPUT);
-#endif
-  
-  // Initialiser le Timer1 pour appeler periodicFunction toutes les 25ms
-  Timer1.initialize(TIMER_PERIOD);
-  Timer1.attachInterrupt(periodicFunction);
-  
-  // Réinitialiser le compteur périodique
-  periodicCounter = 0;
-  periodicCounter = 0;
-}
-
 // Fonction séparée pour la gestion audio
 void updateAudio() {
   static uint8_t lastPlayingBlock = 255; // Aucun bloc
@@ -1275,193 +1454,6 @@ void updateAudio() {
   }
 }
 
-// Fonction appelée périodiquement par TimerOne (toutes les 25ms)
-void periodicFunction() {
-  // Incrémenter le compteur périodique
-  periodicCounter++;
-    // Note: L'affichage 7 segments est maintenant géré dans loop() pour éviter le blocage I2C dans l'interruption
-    // Lecture du bouton (4 fois par seconde = tous les 10 cycles)
-  if (periodicCounter % 10 == 0) {
-    static bool lastButtonState = HIGH;
-    bool buttonState = digitalRead(BUTTON_PIN);
-    
-    // Gestion du bouton avec anti-rebond logiciel
-    if (buttonState != lastButtonState) {
-      if (buttonState == LOW) {
-        // Bouton pressé
-        if (gameState.etat == GAME_STATE_MENU) {
-          // Dans le menu, changer vers l'état de jeu
-          changeGameState(GAME_STATE_LEVEL);
-        } else if (gameState.etat == GAME_STATE_LEVEL) {
-          // Dans le jeu, activer le clignotement du curseur
-          cursor.state = CURSOR_STATE_BLINKING;
-        }
-      } else {
-        // Bouton relâché
-        if (gameState.etat == GAME_STATE_LEVEL) {
-          cursor.state = CURSOR_STATE_NORMAL;
-          shouldShowCursor = true; // Toujours visible quand on relâche le bouton
-        }
-      }
-      lastButtonState = buttonState;
-      displayNeedsUpdate = true;
-    }
-  }
-    // Lecture du potentiomètre (10 fois par seconde = tous les 4 cycles)
-  if (periodicCounter % 4 == 0) {
-    if (digitalRead(BUTTON_PIN) == HIGH) {
-      // Lire la valeur actuelle du potentiomètre
-      int newPotValue = analogRead(POT_PIN);
-      
-      // Ne mettre à jour que si la valeur a suffisamment changé (évite les micro-variations)
-      if (abs(newPotValue - cursor.potValue) > 5) {
-        cursor.potValue = newPotValue;
-        int y = map(cursor.potValue, 0, 1024, 0, MATRIX_HEIGHT - 1);
-        if (y < 0) y = 0;
-        if (y > MATRIX_HEIGHT - 2) y = MATRIX_HEIGHT - 2;
-        
-        // N'actualiser que si la position a réellement changé
-        if (cursor.y != (uint8_t)y) {
-          cursor.y = (uint8_t)y;
-          displayNeedsUpdate = true;
-        }
-      }
-    }
-  }    // Gestion du clignotement du curseur (5 fois par seconde = tous les 8 cycles)
-  if (periodicCounter % 8 == 0) {
-    if (cursor.state == CURSOR_STATE_BLINKING) {
-      shouldShowCursor = !shouldShowCursor; // Inverser l'état d'affichage du curseur
-      displayNeedsUpdate = true;
-      
-      // Vérifier les collisions pendant le clignotement (seulement dans l'état LEVEL)
-      if (gameState.etat == GAME_STATE_LEVEL) {
-        checkCursorCollision();
-      }
-    } else if (!shouldShowCursor) {
-      shouldShowCursor = true; // S'assurer que le curseur est visible si pas en mode clignotement
-      displayNeedsUpdate = true;
-    }
-  }
-  
-  // Déplacement du curseur (tous les cycles, mais progressif)
-  if (cursor.yDisplayed < cursor.y) {
-    cursor.yDisplayed++;
-    displayNeedsUpdate = true;
-  } else if (cursor.yDisplayed > cursor.y) {
-    cursor.yDisplayed--;
-    displayNeedsUpdate = true;
-  }  // Déplacement des blocs - fréquence selon le niveau de difficulté
-  // Seulement si on est dans l'état LEVEL
-  if (gameState.etat == GAME_STATE_LEVEL && periodicCounter % blockMoveCycles == 0) {
-    // Déterminer le bloc prioritaire (le plus à gauche) qui occupe x=2 ou x=3
-    int8_t blockToPlay = -1;
-    int16_t minX = 1000;
-    
-    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-      if (blocks[i].active) {
-        int16_t xStart = blocks[i].x;
-        int16_t xEnd = xStart + blocks[i].length;
-        
-        // Le bloc occupe-t-il x=2 ou x=3 ?
-        if ((2 >= xStart && 2 < xEnd) || (3 >= xStart && 3 < xEnd)) {
-          if (xStart < minX) {
-            minX = xStart;
-            blockToPlay = i;
-          }
-        }
-      }
-    }
-    
-    // Gestion du buzzer : marquer les blocs qui doivent jouer une note
-    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-      if (blocks[i].active) {
-        int16_t xStart = blocks[i].x;
-        int16_t xEnd = xStart + blocks[i].length;
-        bool onGreen = (2 >= xStart && 2 < xEnd) || (3 >= xStart && 3 < xEnd);
-        
-        if (onGreen && i == blockToPlay) {
-          blockNotePlaying[i] = true;
-        } else {
-          blockNotePlaying[i] = false;
-        }
-      } else {
-        blockNotePlaying[i] = false;
-      }
-    }
-      // Effectuer le déplacement des blocs (Phase 1 - calculs uniquement)
-    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-      if (blocks[i].active) {
-        // Sauvegarder l'ancienne position avant de mettre à jour
-        blocks[i].oldX = blocks[i].x;
-        
-        // Déplacer le bloc
-        blocks[i].x--;        // Nouvelle logique : ajouter 2 pixels au score max pour chaque colonne qui passe x=3
-        // (c'est-à-dire quand chaque colonne passe de x=4 à x=3)
-        int16_t oldEnd = blocks[i].oldX + blocks[i].length - 1;  // Dernière colonne à l'ancienne position
-        int16_t newEnd = blocks[i].x + blocks[i].length - 1;     // Dernière colonne à la nouvelle position
-        
-        // Pour chaque colonne du bloc, vérifier si elle vient de passer x=3
-        for (int16_t col = blocks[i].oldX; col <= oldEnd; col++) {
-          // Cette colonne était-elle à x=4 et est maintenant à x=3 ?
-          int16_t newCol = col - 1; // Position après déplacement
-          if (col == 4 && newCol == 3) {
-            // Cette colonne vient de passer la deuxième colonne verte (x=3)
-            // Ajouter 2 pixels (hauteur du bloc = 2) au score maximum
-            addMaxScore(2);
-#if DEBUG_SERIAL
-            Serial.print("Col x=3 bloc ");
-            Serial.print(i);
-            Serial.println(" - Smax +2");
-#endif
-          }
-        }
-        
-        // Vérifier si le bloc est complètement sorti de l'écran
-        if (blocks[i].x + blocks[i].length < -1) {
-          // Le bloc est complètement sorti de l'écran, le désactiver
-          blocks[i].active = 0;
-          blockNotePlaying[i] = false;
-        }
-        
-        blocks[i].needsUpdate = 1; // Marquer le bloc pour affichage
-        displayNeedsUpdate = true; // Indiquer que l'affichage doit être mis à jour
-      }
-    }
-  }
-    // Création de nouvelles notes (1 fois par seconde = tous les 40 cycles)
-  // Seulement si on est dans l'état LEVEL
-  if (gameState.etat == GAME_STATE_LEVEL && periodicCounter % 40 == 0) {
-    if (!songFinished) {
-      static bool noteCreationInProgress = false;
-      
-      if (!noteCreationInProgress) {
-        noteCreationInProgress = true;
-        nextNote();
-        noteCreationInProgress = false;
-        displayNeedsUpdate = true;
-      }
-    }
-  
-    
-    // Gestion de la fin de séquence musicale (toutes les 2 secondes = tous les 80 cycles)
-    if (songFinished && periodicCounter % 80 == 0) {
-      bool allBlocksInactive = true;
-      
-      for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-        if (blocks[i].active) {
-          allBlocksInactive = false;
-          break;
-        }
-      }
-      
-      if (allBlocksInactive) {
-        songFinished = 0;
-        currentSongPart = 0;
-        songPosition = 0;
-      }
-    }
-  }
-}
 
 void handleLevelLoop() {
   // Variables pour détecter les changements
@@ -1556,43 +1548,3 @@ void handleLevelLoop() {
   // Gestion audio des blocs
   updateAudio();
 }
-
-void loop() {
-  // Mise à jour de l'affichage 7 segments - optimisée pour réduire les blocages I2C
-  static unsigned long last7SegUpdate = 0;
-  unsigned long currentTime = millis();
-
-  // Réduire la fréquence des vérifications pour les mises à jour 7seg pendant le jeu
-  unsigned long updateInterval = (gameState.etat == GAME_STATE_LEVEL) ? 200 : 500; // 200ms en jeu, 500ms ailleurs
-  
-  if (currentTime - last7SegUpdate >= updateInterval) {
-    update7SegDisplay(gameState.etat, gameScore.transformed, gameState.level);
-    last7SegUpdate = currentTime;
-  }
-  
-  // Machine à états pour gérer les différents états du jeu
-  switch (gameState.etat) {
-    case GAME_STATE_MENU:
-      handleMenuState();
-      break;
-      
-    case GAME_STATE_LEVEL:
-      handleLevelState();
-      break;
-      
-    case GAME_STATE_WIN:
-      handleWinState();
-      break;
-      
-    case GAME_STATE_LOSE:
-      handleLoseState();
-      break;
-      
-    default:
-      // État invalide, retourner au menu
-      Serial.println("État invalide");
-      changeGameState(GAME_STATE_MENU);
-      break;
-  }
-}
-

@@ -112,39 +112,103 @@ typedef struct {
   bool pauseGame;         // Flag de pause
 } GameState;
 
+// ===== ADRESSES DES AFFICHEURS 7 SEGMENTS =====
+// Organisation des afficheurs :
+// A1 (niveau) = 0x23
+// A2 (non utilisé) = 0x22  
+// A3 (dizaine score) = 0x21
+// A4 (unité score) = 0x20
+const uint8_t A1_ADDR = 0x23;
+const uint8_t A2_ADDR = 0x22;
+const uint8_t A3_ADDR = 0x21;
+const uint8_t A4_ADDR = 0x20;
+
+// ===== VARIABLES D'OPTIMISATION AFFICHAGE 7 SEGMENTS =====
+uint8_t last7SegScore = 255;        // Dernier score affiché (255 = non initialisé)
+uint8_t last7SegLevel = 255;        // Dernier niveau affiché (255 = non initialisé)
+uint8_t last7SegGameState = 255;    // Dernier état de jeu affiché (255 = non initialisé)
+bool menu7SegInitialized = false;   // Flag pour savoir si le menu a été initialisé sur 7seg
+
 // ===== VARIABLES GLOBALES PARTAGÉES =====
-extern Cursor cursor;
-extern Block blocks[MAX_BLOCKS];
-extern volatile uint16_t periodicCounter;
-extern volatile bool displayNeedsUpdate;
-extern volatile bool shouldShowCursor;
+volatile uint16_t periodicCounter = 0;
+
+Cursor cursor;
+Block blocks[MAX_BLOCKS];
+volatile bool displayNeedsUpdate = false;
+volatile bool shouldShowCursor = true;
 
 // Variable principale de l'état du jeu
-extern GameState gameState;
+GameState gameState;
 
 // Variable de score
-extern Score gameScore;
+Score gameScore;
 
 // Variables pour la musique
-extern uint8_t songPosition;
-extern uint8_t currentSongPart;
-extern uint8_t songFinished;
-extern uint8_t lastNoteFrequency;
-extern bool lastNoteStillActive;
-extern bool blockNotePlaying[MAX_BLOCKS];
+uint8_t songPosition = 0;
+uint8_t currentSongPart = 0;
+uint8_t songFinished = 0;
+uint8_t lastNoteFrequency = 0;
+bool lastNoteStillActive = false;
+bool blockNotePlaying[MAX_BLOCKS] = {0};
 
 // Variable globale pour garder trace de la dernière note créée
-extern uint8_t lastNotePosition;
+uint8_t lastNotePosition = 255;
 
 // Variables pour le système de niveaux
-extern uint8_t currentDifficultyLevel;
-extern uint8_t blockMoveCycles;
+uint8_t currentDifficultyLevel = DEFAULT_DIFFICULTY_LEVEL;
+uint8_t blockMoveCycles = BLOCK_MOVE_CYCLES_LEVEL_6;
+
+// ===== FONCTIONS AFFICHAGE 7 SEGMENTS =====
+// Fonction pour afficher un chiffre sur un afficheur 7 segments spécifique
+void display7Seg(uint8_t address, uint8_t digit);
+// Fonction pour afficher le score transformé (pourcentage) sur A4 et A3
+void displayScore(uint8_t transformedScore);
+// Fonction pour afficher le niveau sur A1
+void displayLevel(uint8_t level);
+// Fonction pour afficher "MENU" sur les 4 afficheurs pendant le menu
+void displayMENU();
+// Fonction pour éteindre tous les afficheurs 7 segments
+void clear7Seg();
+// Fonction optimisée pour mettre à jour l'affichage 7 segments selon l'état du jeu
+void update7SegDisplay(uint8_t gameState, uint8_t transformedScore, uint8_t level);
 
 // ===== FONCTIONS UTILITAIRES =====
 // Fonction pour obtenir le nombre de cycles selon le niveau de difficulté
 uint8_t getDifficultyBlockMoveCycles(uint8_t level);
 // Fonction pour définir le niveau de difficulté
 void setDifficultyLevel(uint8_t level);
+// Fonction pour déterminer la position Y en fonction de la fréquence
+uint8_t getPositionYFromFrequency(uint16_t frequency);
+// Fonction pour vérifier si une position verticale est déjà occupée par un bloc actif
+bool isVerticalPositionOccupied(uint8_t posY);
+// Fonction pour vérifier si une colonne est déjà occupée par un bloc actif
+bool isColumnOccupied(int16_t x);
+
+// ===== FONCTIONS DE GESTION DES BLOCS =====
+// Fonction pour créer un nouveau bloc en fonction d'une note
+void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex);
+// Affiche uniquement la tête du bloc (nouvelle colonne)
+void drawBlockHead(const Block& block);
+// Fonction pour dessiner un bloc sur la matrice
+void drawBlock(Block block);
+// Efface uniquement la colonne et lignes concernées par la queue d'un bloc
+void eraseBlockTail(const Block& block);
+// Fonction pour passer à la prochaine note de la chanson
+void nextNote();
+
+// ===== FONCTIONS DE GESTION DU CURSEUR =====
+// Fonction périodique pour lire le potentiomètre et calculer la position cible du curseur
+void updateCursorFromPot();
+// Efface le curseur 2x2 à une position donnée et restaure la colonne verte uniquement sur cette zone
+void eraseCursor(uint8_t y);
+// Affiche le curseur 2x2 rouge à une position donnée
+void drawCursor(uint8_t y);
+// Fonction périodique pour déplacer le curseur bloc par bloc avec clignotement si demandé
+void periodicMoveCursor();
+
+// ===== FONCTIONS D'AFFICHAGE =====
+// Affiche les colonnes 2 et 3 en vert (statique, hors zone curseur et hors zone bloc)
+void drawStaticColumnsExceptCursorAndBlocks();
 
 // ===== FONCTIONS DE GESTION DU JEU =====
 // Initialisation de l'état du jeu
@@ -159,6 +223,8 @@ void handleWinState();
 void handleLoseState();
 // Fonction pour changer l'état du jeu
 void changeGameState(uint8_t newState);
+// Fonction principale de gestion du niveau
+void handleLevelLoop();
 
 // ===== FONCTIONS DE GESTION DU SCORE =====
 // Initialisation du score
@@ -175,5 +241,15 @@ void updateTransformedScore();
 void checkCursorCollision();
 // Calculer quels pixels du bloc sont touchés par le curseur
 uint8_t getBlockPixelsHitByCursor(uint8_t blockIndex);
+
+// ===== FONCTIONS SYSTÈME =====
+// Fonction principale setup
+void setup();
+// Fonction principale loop
+void loop();
+// Fonction séparée pour la gestion audio
+void updateAudio();
+// Fonction appelée périodiquement par TimerOne (toutes les 25ms)
+void periodicFunction();
 
 #endif // DEFINITIONS_H
