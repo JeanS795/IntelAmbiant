@@ -1146,6 +1146,25 @@ void initGameState() {
 // Gestion du menu principal
 void handleMenuState() {
   static bool menuInitialized = false;
+  static uint8_t lastGameState = 255; // Pour détecter le changement d'état
+  
+  // Détecter si on vient de changer d'état
+  if (lastGameState != gameState.etat) {
+    menuInitialized = false; // Forcer la réinitialisation
+    lastGameState = gameState.etat;
+    
+    // CORRECTION CRITIQUE: Double nettoyage pour éliminer la contamination de la mémoire shadow
+    ht1632_clear();
+    delay(10); // Petite pause pour laisser le temps au hardware
+    ht1632_clear();
+    
+    // CORRECTION CRITIQUE: Nettoyage manuel complet de la shadowram
+    for (int chip = 0; chip < 4; chip++) {
+      for (int addr = 0; addr < 64; addr++) {
+        ht1632_shadowram[addr][chip] = 0;
+      }
+    }
+  }
   
   if (!menuInitialized) {
     ht1632_clear();
@@ -1173,6 +1192,26 @@ void handleMenuState() {
 // Gestion de l'état de jeu (niveau)
 void handleLevelState() {
   static bool levelInitialized = false;
+  static uint8_t lastGameState = 255; // Pour détecter le changement d'état
+  
+  // Détecter si on vient de changer d'état
+  if (lastGameState != gameState.etat) {
+    levelInitialized = false; // Forcer la réinitialisation
+    lastGameState = gameState.etat;
+    
+    // CORRECTION CRITIQUE: Double nettoyage pour éliminer la contamination de la mémoire shadow
+    ht1632_clear();
+    delay(10); // Petite pause pour laisser le temps au hardware
+    ht1632_clear();
+    
+    // CORRECTION CRITIQUE: Nettoyage manuel complet de la shadowram
+    for (int chip = 0; chip < 4; chip++) {
+      for (int addr = 0; addr < 64; addr++) {
+        ht1632_shadowram[addr][chip] = 0;
+      }
+    }
+  }
+  
     if (!levelInitialized) {    // Initialiser le niveau
     setDifficultyLevel(gameState.level);
     gameState.timeStart = millis();
@@ -1236,6 +1275,24 @@ void handleLevelState() {
 void handleWinState() {
   static bool winInitialized = false;
   static uint32_t winDisplayTime = 0;
+  static uint8_t lastGameState = 255; // Pour détecter le changement d'état
+    // Détecter si on vient de changer d'état
+  if (lastGameState != gameState.etat) {
+    winInitialized = false; // Forcer la réinitialisation
+    lastGameState = gameState.etat;
+    
+    // CORRECTION CRITIQUE: Double nettoyage pour éliminer la contamination de la mémoire shadow
+    ht1632_clear();
+    delay(10); // Petite pause pour laisser le temps au hardware
+    ht1632_clear();
+    
+    // CORRECTION CRITIQUE: Nettoyage manuel complet de la shadowram
+    for (int chip = 0; chip < 4; chip++) {
+      for (int addr = 0; addr < 64; addr++) {
+        ht1632_shadowram[addr][chip] = 0;
+      }
+    }
+  }
   
   if (!winInitialized) {
     ht1632_clear();
@@ -1277,6 +1334,24 @@ void handleWinState() {
 void handleLoseState() {
   static bool loseInitialized = false;
   static uint32_t loseDisplayTime = 0;
+  static uint8_t lastGameState = 255; // Pour détecter le changement d'état
+    // Détecter si on vient de changer d'état
+  if (lastGameState != gameState.etat) {
+    loseInitialized = false; // Forcer la réinitialisation
+    lastGameState = gameState.etat;
+    
+    // CORRECTION CRITIQUE: Double nettoyage pour éliminer la contamination de la mémoire shadow
+    ht1632_clear();
+    delay(10); // Petite pause pour laisser le temps au hardware
+    ht1632_clear();
+    
+    // CORRECTION CRITIQUE: Nettoyage manuel complet de la shadowram
+    for (int chip = 0; chip < 4; chip++) {
+      for (int addr = 0; addr < 64; addr++) {
+        ht1632_shadowram[addr][chip] = 0;
+      }
+    }
+  }
   
   if (!loseInitialized) {
     ht1632_clear();
