@@ -5,15 +5,6 @@
 #include "definitions.h"
 // je suis michel
 
-// CORRECTION CRITIQUE: Déclaration de la variable persistante pour le niveau
-extern uint8_t persistentSelectedLevel;
-
-// Variable globale pour signaler la réinitialisation du bouton après changement d'état
-bool needButtonReset = false;
-
-// Variable globale pour forcer la réinitialisation du menu
-bool forceMenuReinit = false;
-
 //======== SETUP ========
 void setup() {
   // Réactiver Serial pour le débogage

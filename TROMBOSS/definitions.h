@@ -191,6 +191,13 @@ MenuState menuState;
 // Cette variable est protégée contre les corruptions de mémoire
 uint8_t persistentSelectedLevel = 1;
 
+// CORRECTION CRITIQUE: Variables globales pour la gestion d'état
+// Variable globale pour signaler la réinitialisation du bouton après changement d'état
+bool needButtonReset = false;
+
+// Variable globale pour forcer la réinitialisation du menu
+bool forceMenuReinit = false;
+
 // ===== DONNÉES MENU COMPRESSÉES =====
 
 // ===== FONCTIONS AFFICHAGE 7 SEGMENTS =====
