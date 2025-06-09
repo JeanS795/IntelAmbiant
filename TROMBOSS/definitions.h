@@ -12,7 +12,7 @@
 #define MATRIX_WIDTH 32
 #define MATRIX_HEIGHT 16
 #define BLOCK_HEIGHT 2
-#define MAX_BLOCKS 12
+#define MAX_BLOCKS 18
 
 // ===== CONSTANTES TIMING =====
 #define TIMER_PERIOD 25000  // 25ms en microsecondes
@@ -158,6 +158,25 @@ uint8_t lastNotePosition = 255;
 uint8_t currentDifficultyLevel = DEFAULT_DIFFICULTY_LEVEL;
 uint8_t blockMoveCycles = BLOCK_MOVE_CYCLES_LEVEL_6;
 
+// ===== CONSTANTES MENU =====
+#define MENU_LEVEL_MIN 1
+#define MENU_LEVEL_MAX 9
+#define MENU_BOX_BLINK_INTERVAL 300  // ms pour le clignotement de validation
+
+// ===== STRUCTURES MENU =====
+typedef struct {
+  uint8_t selectedLevel;     // Niveau sélectionné (1-9)
+  bool boxVisible;           // Visibilité de la boîte (pour clignotement)
+  uint32_t lastBlinkTime;    // Dernier temps de clignotement
+  bool validationMode;       // Mode validation (clignotement avant passage au jeu)
+  uint32_t validationStart;  // Début de la validation
+} MenuState;
+
+// ===== VARIABLES GLOBALES MENU =====
+MenuState menuState;
+
+// ===== DONNÉES MENU COMPRESSÉES =====
+
 // ===== FONCTIONS AFFICHAGE 7 SEGMENTS =====
 // Fonction pour afficher un chiffre sur un afficheur 7 segments spécifique
 void display7Seg(uint8_t address, uint8_t digit);
@@ -251,5 +270,81 @@ void loop();
 void updateAudio();
 // Fonction appelée périodiquement par TimerOne (toutes les 25ms)
 void periodicFunction();
+
+// ===== FONCTIONS MENU =====
+// Initialiser l'état du menu
+void initMenuState();
+// Dessiner le texte "MENU" statique
+void drawMenuText();
+// Dessiner la boîte du niveau (rectangle)
+void drawMenuBox();
+// Effacer la boîte du niveau
+void eraseMenuBox();
+// Dessiner un chiffre dans la boîte (1-9)
+void drawMenuDigit(uint8_t digit);
+// Effacer un chiffre dans la boîte (1-9)
+void eraseMenuDigit(uint8_t digit);
+// Affichage complet du menu
+void drawFullMenu();
+// Gestion du clignotement de validation
+void updateMenuValidation();
+
+// ===== DONNÉES MENU COMPRESSÉES =====
+
+// Coordonnées du texte "MENU" (format: x, y)
+const uint8_t menuTextCoords[] PROGMEM = {
+  1,2, 5,2, 7,2, 8,2, 9,2, 10,2, 21,2, 25,2, 27,2, 30,2,
+  1,3, 2,3, 4,3, 5,3, 7,3, 21,3, 22,3, 25,3, 27,3, 30,3,
+  1,4, 3,4, 5,4, 7,4, 21,4, 22,4, 25,4, 27,4, 30,4,
+  1,5, 5,5, 7,5, 8,5, 9,5, 10,5, 21,5, 23,5, 25,5, 27,5, 30,5,
+  1,6, 5,6, 7,6, 21,6, 24,6, 25,6, 27,6, 30,6,
+  1,7, 5,7, 7,7, 21,7, 24,7, 25,7, 27,7, 30,7,
+  1,8, 5,8, 7,8, 8,8, 9,8, 10,8, 21,8, 25,8, 27,8, 28,8, 29,8, 30,8
+};
+const uint8_t menuTextCoordsCount = sizeof(menuTextCoords) / 2;
+
+// Coordonnées de la boîte (rectangle milieu)
+const uint8_t menuBoxCoords[] PROGMEM = {
+  12,5, 13,5, 14,5, 15,5, 16,5, 17,5, 18,5, 19,5,
+  12,6, 19,6, 12,7, 19,7, 12,8, 19,8, 12,9, 19,9,
+  12,10, 19,10, 12,11, 19,11, 12,12, 19,12,
+  12,13, 13,13, 14,13, 15,13, 16,13, 17,13, 18,13, 19,13
+};
+const uint8_t menuBoxCoordsCount = sizeof(menuBoxCoords) / 2;
+
+// Coordonnées des chiffres 1-9 (format: nombre de points, puis x,y,x,y...)
+const uint8_t menuDigit1[] PROGMEM = {
+  15,7, 16,7, 14,8, 15,8, 16,8, 15,9, 16,9, 15,10, 16,10, 14,11, 15,11, 16,11, 17,11
+};
+const uint8_t menuDigit2[] PROGMEM = {
+  14,7, 15,7, 16,7, 17,7, 17,8, 14,9, 15,9, 16,9, 17,9, 14,10, 14,11, 15,11, 16,11, 17,11
+};
+const uint8_t menuDigit3[] PROGMEM = {
+  14,7, 15,7, 16,7, 17,7, 17,8, 14,9, 15,9, 16,9, 17,9, 17,10, 14,11, 15,11, 16,11, 17,11
+};
+const uint8_t menuDigit4[] PROGMEM = {
+  14,7, 16,7, 14,8, 16,8, 14,9, 15,9, 16,9, 17,9, 16,10, 16,11
+};
+const uint8_t menuDigit5[] PROGMEM = {
+  14,7, 15,7, 16,7, 17,7, 14,8, 14,9, 15,9, 16,9, 17,9, 17,10, 14,11, 15,11, 16,11, 17,11
+};
+const uint8_t menuDigit6[] PROGMEM = {
+  14,7, 15,7, 16,7, 17,7, 14,8, 14,9, 15,9, 16,9, 17,9, 14,10, 17,10, 14,11, 15,11, 16,11, 17,11
+};
+const uint8_t menuDigit7[] PROGMEM = {
+  14,7, 15,7, 16,7, 17,7, 17,8, 16,9, 15,10, 14,11
+};
+const uint8_t menuDigit8[] PROGMEM = {
+  15,7, 16,7, 14,8, 17,8, 15,9, 16,9, 14,10, 17,10, 15,11, 16,11
+};
+const uint8_t menuDigit9[] PROGMEM = {
+  14,7, 15,7, 16,7, 17,7, 14,8, 17,8, 14,9, 15,9, 16,9, 17,9, 17,10, 14,11, 15,11, 16,11, 17,11
+};
+
+const uint8_t menuDigitCounts[] PROGMEM = {0, 13, 14, 14, 10, 14, 15, 8, 10, 15};
+const uint8_t* const menuDigits[] PROGMEM = {
+  nullptr, menuDigit1, menuDigit2, menuDigit3, menuDigit4,
+  menuDigit5, menuDigit6, menuDigit7, menuDigit8, menuDigit9
+};
 
 #endif // DEFINITIONS_H

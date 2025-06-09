@@ -16,10 +16,12 @@ void setup() {
   // Initialisation de la matrice LED
   Wire.begin();
   ht1632_setup();
-  setup7Seg();
-  ht1632_clear();
+  setup7Seg();  ht1632_clear();
     // Initialiser l'état du jeu
   initGameState();
+  
+  // Initialiser l'état du menu
+  initMenuState();
   
   // Configuration du bouton en entrée avec pull-up interne
   pinMode(BUTTON_PIN, INPUT_PULLUP);
@@ -103,19 +105,32 @@ void loop() {
 void periodicFunction() {
   // Incrémenter le compteur périodique
   periodicCounter++;
-    // Note: L'affichage 7 segments est maintenant géré dans loop() pour éviter le blocage I2C dans l'interruption
-    // Lecture du bouton (4 fois par seconde = tous les 10 cycles)
+
+  // Note: L'affichage 7 segments est maintenant géré dans loop() pour éviter le blocage I2C dans l'interruption
+
+  // ===== CONTRÔLES COMMUNS À TOUS LES ÉTATS =====
+  
+  // Lecture du bouton (4 fois par seconde = tous les 10 cycles)
   if (periodicCounter % 10 == 0) {
     static bool lastButtonState = HIGH;
     bool buttonState = digitalRead(BUTTON_PIN);
     
     // Gestion du bouton avec anti-rebond logiciel
-    if (buttonState != lastButtonState) {
-      if (buttonState == LOW) {
+    if (buttonState != lastButtonState) {      if (buttonState == LOW) {
         // Bouton pressé
         if (gameState.etat == GAME_STATE_MENU) {
-          // Dans le menu, changer vers l'état de jeu
-          changeGameState(GAME_STATE_LEVEL);
+          // Dans le menu, démarrer le mode validation avec clignotement
+          if (!menuState.validationMode) {
+            menuState.validationMode = true;
+            menuState.validationStart = millis();
+            menuState.lastBlinkTime = millis();
+            menuState.boxVisible = false; // Commencer par invisible pour créer l'effet
+            
+#if DEBUG_SERIAL
+            Serial.print("Validation niveau ");
+            Serial.println(menuState.selectedLevel);
+#endif
+          }
         } else if (gameState.etat == GAME_STATE_LEVEL) {
           // Dans le jeu, activer le clignotement du curseur
           cursor.state = CURSOR_STATE_BLINKING;
@@ -131,7 +146,8 @@ void periodicFunction() {
       displayNeedsUpdate = true;
     }
   }
-    // Lecture du potentiomètre (10 fois par seconde = tous les 4 cycles)
+
+  // Lecture du potentiomètre (10 fois par seconde = tous les 4 cycles)
   if (periodicCounter % 4 == 0) {
     if (digitalRead(BUTTON_PIN) == HIGH) {
       // Lire la valeur actuelle du potentiomètre
@@ -151,139 +167,208 @@ void periodicFunction() {
         }
       }
     }
-  }    // Gestion du clignotement du curseur (5 fois par seconde = tous les 8 cycles)
-  if (periodicCounter % 8 == 0) {
-    if (cursor.state == CURSOR_STATE_BLINKING) {
-      shouldShowCursor = !shouldShowCursor; // Inverser l'état d'affichage du curseur
-      displayNeedsUpdate = true;
-      
-      // Vérifier les collisions pendant le clignotement (seulement dans l'état LEVEL)
-      if (gameState.etat == GAME_STATE_LEVEL) {
-        checkCursorCollision();
-      }
-    } else if (!shouldShowCursor) {
-      shouldShowCursor = true; // S'assurer que le curseur est visible si pas en mode clignotement
-      displayNeedsUpdate = true;
-    }
   }
-  
-  // Déplacement du curseur (tous les cycles, mais progressif)
-  if (cursor.yDisplayed < cursor.y) {
-    cursor.yDisplayed++;
-    displayNeedsUpdate = true;
-  } else if (cursor.yDisplayed > cursor.y) {
-    cursor.yDisplayed--;
-    displayNeedsUpdate = true;
-  }  // Déplacement des blocs - fréquence selon le niveau de difficulté
-  // Seulement si on est dans l'état LEVEL
-  if (gameState.etat == GAME_STATE_LEVEL && periodicCounter % blockMoveCycles == 0) {
-    // Déterminer le bloc prioritaire (le plus à gauche) qui occupe x=2 ou x=3
-    int8_t blockToPlay = -1;
-    int16_t minX = 1000;
-    
-    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-      if (blocks[i].active) {
-        int16_t xStart = blocks[i].x;
-        int16_t xEnd = xStart + blocks[i].length;
+
+  // ===== MACHINE À ÉTATS POUR LES TRAITEMENTS SPÉCIFIQUES =====
+  switch (gameState.etat) {    case GAME_STATE_MENU:      // Gestion de la sélection de niveau via potentiomètre (4 fois par seconde = tous les 10 cycles)
+      if (periodicCounter % 10 == 0 && !menuState.validationMode) {        // Lire la valeur du potentiomètre et la mapper sur les niveaux 1-9 (INVERSÉ)
+        int potValue = analogRead(POT_PIN);
         
-        // Le bloc occupe-t-il x=2 ou x=3 ?
-        if ((2 >= xStart && 2 < xEnd) || (3 >= xStart && 3 < xEnd)) {
-          if (xStart < minX) {
-            minX = xStart;
-            blockToPlay = i;
-          }
-        }
-      }
-    }
-    
-    // Gestion du buzzer : marquer les blocs qui doivent jouer une note
-    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-      if (blocks[i].active) {
-        int16_t xStart = blocks[i].x;
-        int16_t xEnd = xStart + blocks[i].length;
-        bool onGreen = (2 >= xStart && 2 < xEnd) || (3 >= xStart && 3 < xEnd);
-        
-        if (onGreen && i == blockToPlay) {
-          blockNotePlaying[i] = true;
+        // Mapping inversé équitable : 1024 valeurs réparties sur 9 niveaux (~114 valeurs par niveau)
+        // potValue 0-113 = niveau 9, 114-227 = niveau 8, ..., 912-1023 = niveau 1
+        uint8_t newLevel;
+        if (potValue <= 113) {
+          newLevel = 9; // niveau 9 pour 0-113 (114 valeurs)
+        } else if (potValue <= 227) {
+          newLevel = 8; // niveau 8 pour 114-227 (114 valeurs)
+        } else if (potValue <= 341) {
+          newLevel = 7; // niveau 7 pour 228-341 (114 valeurs)
+        } else if (potValue <= 455) {
+          newLevel = 6; // niveau 6 pour 342-455 (114 valeurs)
+        } else if (potValue <= 569) {
+          newLevel = 5; // niveau 5 pour 456-569 (114 valeurs)
+        } else if (potValue <= 683) {
+          newLevel = 4; // niveau 4 pour 570-683 (114 valeurs)
+        } else if (potValue <= 797) {
+          newLevel = 3; // niveau 3 pour 684-797 (114 valeurs)
+        } else if (potValue <= 911) {
+          newLevel = 2; // niveau 2 pour 798-911 (114 valeurs)
         } else {
-          blockNotePlaying[i] = false;
+          newLevel = 1; // niveau 1 pour 912-1023 (112 valeurs)
         }
-      } else {
-        blockNotePlaying[i] = false;
-      }
-    }
-      // Effectuer le déplacement des blocs (Phase 1 - calculs uniquement)
-    for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-      if (blocks[i].active) {
-        // Sauvegarder l'ancienne position avant de mettre à jour
-        blocks[i].oldX = blocks[i].x;
         
-        // Déplacer le bloc
-        blocks[i].x--;        // Nouvelle logique : ajouter 2 pixels au score max pour chaque colonne qui passe x=3
-        // (c'est-à-dire quand chaque colonne passe de x=4 à x=3)
-        int16_t oldEnd = blocks[i].oldX + blocks[i].length - 1;  // Dernière colonne à l'ancienne position
-        int16_t newEnd = blocks[i].x + blocks[i].length - 1;     // Dernière colonne à la nouvelle position
-        
-        // Pour chaque colonne du bloc, vérifier si elle vient de passer x=3
-        for (int16_t col = blocks[i].oldX; col <= oldEnd; col++) {
-          // Cette colonne était-elle à x=4 et est maintenant à x=3 ?
-          int16_t newCol = col - 1; // Position après déplacement
-          if (col == 4 && newCol == 3) {
-            // Cette colonne vient de passer la deuxième colonne verte (x=3)
-            // Ajouter 2 pixels (hauteur du bloc = 2) au score maximum
-            addMaxScore(2);
+        // Mettre à jour seulement si le niveau a changé
+        if (newLevel != menuState.selectedLevel) {
+          // Effacer l'ancien chiffre
+          eraseMenuDigit(menuState.selectedLevel);
+          
+          // Mettre à jour le niveau sélectionné
+          menuState.selectedLevel = newLevel;
+          gameState.level = newLevel; // Synchroniser avec l'état du jeu
+          
+          // Dessiner le nouveau chiffre
+          drawMenuDigit(menuState.selectedLevel);        
 #if DEBUG_SERIAL
-            Serial.print("Col x=3 bloc ");
-            Serial.print(i);
-            Serial.println(" - Smax +2");
+          Serial.print("PotValue: ");
+          Serial.print(potValue);
+          Serial.print(" -> Niveau sélectionné: ");
+          Serial.println(menuState.selectedLevel);
 #endif
-          }
         }
-        
-        // Vérifier si le bloc est complètement sorti de l'écran
-        if (blocks[i].x + blocks[i].length < -1) {
-          // Le bloc est complètement sorti de l'écran, le désactiver
-          blocks[i].active = 0;
-          blockNotePlaying[i] = false;
-        }
-        
-        blocks[i].needsUpdate = 1; // Marquer le bloc pour affichage
-        displayNeedsUpdate = true; // Indiquer que l'affichage doit être mis à jour
       }
-    }
-  }
-    // Création de nouvelles notes (1 fois par seconde = tous les 40 cycles)
-  // Seulement si on est dans l'état LEVEL
-  if (gameState.etat == GAME_STATE_LEVEL && periodicCounter % 40 == 0) {
-    if (!songFinished) {
-      static bool noteCreationInProgress = false;
+      break;
       
-      if (!noteCreationInProgress) {
-        noteCreationInProgress = true;
-        nextNote();
-        noteCreationInProgress = false;
+    case GAME_STATE_LEVEL:
+      // Gestion du clignotement du curseur (5 fois par seconde = tous les 8 cycles)
+      if (periodicCounter % 8 == 0) {
+        if (cursor.state == CURSOR_STATE_BLINKING) {
+          shouldShowCursor = !shouldShowCursor; // Inverser l'état d'affichage du curseur
+          displayNeedsUpdate = true;
+          
+          // Vérifier les collisions pendant le clignotement
+          checkCursorCollision();
+        } else if (!shouldShowCursor) {
+          shouldShowCursor = true; // S'assurer que le curseur est visible si pas en mode clignotement
+          displayNeedsUpdate = true;
+        }
+      }
+      
+      // Déplacement du curseur (tous les cycles, mais progressif)
+      if (cursor.yDisplayed < cursor.y) {
+        cursor.yDisplayed++;
+        displayNeedsUpdate = true;
+      } else if (cursor.yDisplayed > cursor.y) {
+        cursor.yDisplayed--;
         displayNeedsUpdate = true;
       }
-    }
-  
-    
-    // Gestion de la fin de séquence musicale (toutes les 2 secondes = tous les 80 cycles)
-    if (songFinished && periodicCounter % 80 == 0) {
-      bool allBlocksInactive = true;
-      
-      for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
-        if (blocks[i].active) {
-          allBlocksInactive = false;
-          break;
+
+      // Déplacement des blocs - fréquence selon le niveau de difficulté
+      if (periodicCounter % blockMoveCycles == 0) {
+        // Déterminer le bloc prioritaire (le plus à gauche) qui occupe x=2 ou x=3
+        int8_t blockToPlay = -1;
+        int16_t minX = 1000;
+        
+        for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+          if (blocks[i].active) {
+            int16_t xStart = blocks[i].x;
+            int16_t xEnd = xStart + blocks[i].length;
+            
+            // Le bloc occupe-t-il x=2 ou x=3 ?
+            if ((2 >= xStart && 2 < xEnd) || (3 >= xStart && 3 < xEnd)) {
+              if (xStart < minX) {
+                minX = xStart;
+                blockToPlay = i;
+              }
+            }
+          }
+        }
+        
+        // Gestion du buzzer : marquer les blocs qui doivent jouer une note
+        for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+          if (blocks[i].active) {
+            int16_t xStart = blocks[i].x;
+            int16_t xEnd = xStart + blocks[i].length;
+            bool onGreen = (2 >= xStart && 2 < xEnd) || (3 >= xStart && 3 < xEnd);
+            
+            if (onGreen && i == blockToPlay) {
+              blockNotePlaying[i] = true;
+            } else {
+              blockNotePlaying[i] = false;
+            }
+          } else {
+            blockNotePlaying[i] = false;
+          }
+        }
+
+        // Effectuer le déplacement des blocs (Phase 1 - calculs uniquement)
+        for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+          if (blocks[i].active) {
+            // Sauvegarder l'ancienne position avant de mettre à jour
+            blocks[i].oldX = blocks[i].x;
+            
+            // Déplacer le bloc
+            blocks[i].x--;
+
+            // Nouvelle logique : ajouter 2 pixels au score max pour chaque colonne qui passe x=3
+            // (c'est-à-dire quand chaque colonne passe de x=4 à x=3)
+            int16_t oldEnd = blocks[i].oldX + blocks[i].length - 1;  // Dernière colonne à l'ancienne position
+            int16_t newEnd = blocks[i].x + blocks[i].length - 1;     // Dernière colonne à la nouvelle position
+            
+            // Pour chaque colonne du bloc, vérifier si elle vient de passer x=3
+            for (int16_t col = blocks[i].oldX; col <= oldEnd; col++) {
+              // Cette colonne était-elle à x=4 et est maintenant à x=3 ?
+              int16_t newCol = col - 1; // Position après déplacement
+              if (col == 4 && newCol == 3) {
+                // Cette colonne vient de passer la deuxième colonne verte (x=3)
+                // Ajouter 2 pixels (hauteur du bloc = 2) au score maximum
+                addMaxScore(2);
+#if DEBUG_SERIAL
+                Serial.print("Col x=3 bloc ");
+                Serial.print(i);
+                Serial.println(" - Smax +2");
+#endif
+              }
+            }
+            
+            // Vérifier si le bloc est complètement sorti de l'écran
+            if (blocks[i].x + blocks[i].length < -1) {
+              // Le bloc est complètement sorti de l'écran, le désactiver
+              blocks[i].active = 0;
+              blockNotePlaying[i] = false;
+            }
+            
+            blocks[i].needsUpdate = 1; // Marquer le bloc pour affichage
+            displayNeedsUpdate = true; // Indiquer que l'affichage doit être mis à jour
+          }
         }
       }
-      
-      if (allBlocksInactive) {
-        songFinished = 0;
-        currentSongPart = 0;
-        songPosition = 0;
+
+      // Création de nouvelles notes (1 fois par seconde = tous les 40 cycles)
+      if (periodicCounter % 40 == 0) {
+        if (!songFinished) {
+          static bool noteCreationInProgress = false;
+          
+          if (!noteCreationInProgress) {
+            noteCreationInProgress = true;
+            nextNote();
+            noteCreationInProgress = false;
+            displayNeedsUpdate = true;
+          }
+        }
+
+        // Gestion de la fin de séquence musicale (toutes les 2 secondes = tous les 80 cycles)
+        if (songFinished && periodicCounter % 80 == 0) {
+          bool allBlocksInactive = true;
+          
+          for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
+            if (blocks[i].active) {
+              allBlocksInactive = false;
+              break;
+            }
+          }
+          
+          if (allBlocksInactive) {
+            songFinished = 0;
+            currentSongPart = 0;
+            songPosition = 0;
+          }
+        }
       }
-    }
+      break;
+      
+    case GAME_STATE_WIN:
+      // Pas de traitement spécifique périodique en mode victoire
+      // Tout est géré dans handleWinState() dans loop()
+      break;
+      
+    case GAME_STATE_LOSE:
+      // Pas de traitement spécifique périodique en mode défaite
+      // Tout est géré dans handleLoseState() dans loop()
+      break;
+      
+    default:
+      // État invalide, pas de traitement spécifique
+      break;
   }
 }
 
@@ -1064,17 +1149,24 @@ void handleMenuState() {
   
   if (!menuInitialized) {
     ht1632_clear();
-    // Affichage du menu (simplifié pour l'instant)
-    // TODO: Implémenter l'interface de sélection de niveau
+    
+    // Initialiser l'état du menu
+    initMenuState();
+    
+    // Afficher le menu complet avec système intelligent
+    drawFullMenu();
     
 #if DEBUG_SERIAL
     Serial.println("=== MENU ===");
-    Serial.println("Bouton pour start");
+    Serial.println("Potentiomètre: niveau, Bouton: start");
 #endif
     menuInitialized = true;
   }
   
-  // Note: La gestion du bouton est maintenant dans periodicFunction()
+  // Gestion de la validation (clignotement)
+  updateMenuValidation();
+  
+  // Note: La gestion du potentiomètre et du bouton est maintenant dans periodicFunction()
   // pour éviter les conflits entre les deux fonctions
 }
 
@@ -1223,6 +1315,12 @@ void changeGameState(uint8_t newState) {
     last7SegScore = 255;
     last7SegLevel = 255;
     menu7SegInitialized = false;
+    
+    // Réinitialiser l'état du menu si on quitte le menu
+    if (newState != GAME_STATE_MENU) {
+      menuState.validationMode = false;
+      menuState.boxVisible = true;
+    }
     
 #if DEBUG_SERIAL
     Serial.print("État: ");
@@ -1459,7 +1557,7 @@ void handleLevelLoop() {
   // Variables pour détecter les changements
   static uint32_t lastAudioUpdate = 0;
   static bool prevShouldShowCursor = shouldShowCursor;
-  uint32_t currentTime = periodicCounter * TIMER_PERIOD / 1000; // Temps basé sur le compteur sans utiliser millis()
+  uint32_t currentTime = periodicCounter * TIMER_PERIOD / 1000; // Temps basé on the compteur sans utiliser millis()
   
   bool cursorStateChanged = (shouldShowCursor != prevShouldShowCursor);
   bool cursorPositionChanged = (cursor.yDisplayed != cursor.yLast);
@@ -1547,4 +1645,109 @@ void handleLevelLoop() {
   
   // Gestion audio des blocs
   updateAudio();
+}
+
+// ===== IMPLÉMENTATIONS DES FONCTIONS MENU =====
+
+// Initialiser l'état du menu
+void initMenuState() {
+  menuState.selectedLevel = 1;
+  menuState.boxVisible = true;
+  menuState.lastBlinkTime = 0;
+  menuState.validationMode = false;
+  menuState.validationStart = 0;
+}
+
+// Dessiner le texte "MENU" statique
+void drawMenuText() {
+  for (uint8_t i = 0; i < menuTextCoordsCount; i++) {
+    uint8_t x = pgm_read_byte(&menuTextCoords[i * 2]);
+    uint8_t y = pgm_read_byte(&menuTextCoords[i * 2 + 1]);
+    ht1632_plot(x, y, COLOR_GREEN);
+  }
+}
+
+// Dessiner la boîte du niveau (rectangle)
+void drawMenuBox() {
+  for (uint8_t i = 0; i < menuBoxCoordsCount; i++) {
+    uint8_t x = pgm_read_byte(&menuBoxCoords[i * 2]);
+    uint8_t y = pgm_read_byte(&menuBoxCoords[i * 2 + 1]);
+    ht1632_plot(x, y, COLOR_ORANGE);
+  }
+}
+
+// Effacer la boîte du niveau
+void eraseMenuBox() {
+  for (uint8_t i = 0; i < menuBoxCoordsCount; i++) {
+    uint8_t x = pgm_read_byte(&menuBoxCoords[i * 2]);
+    uint8_t y = pgm_read_byte(&menuBoxCoords[i * 2 + 1]);
+    ht1632_plot(x, y, COLOR_OFF);
+  }
+}
+
+// Dessiner un chiffre dans la boîte (1-9)
+void drawMenuDigit(uint8_t digit) {
+  if (digit < 1 || digit > 9) return;
+  
+  uint8_t count = pgm_read_byte(&menuDigitCounts[digit]);
+  const uint8_t* coords = (const uint8_t*)pgm_read_word(&menuDigits[digit]);
+  
+  for (uint8_t i = 0; i < count; i++) {
+    uint8_t x = pgm_read_byte(&coords[i * 2]);
+    uint8_t y = pgm_read_byte(&coords[i * 2 + 1]);
+    ht1632_plot(x, y, COLOR_RED);
+  }
+}
+
+// Effacer un chiffre dans la boîte (1-9)
+void eraseMenuDigit(uint8_t digit) {
+  if (digit < 1 || digit > 9) return;
+  
+  uint8_t count = pgm_read_byte(&menuDigitCounts[digit]);
+  const uint8_t* coords = (const uint8_t*)pgm_read_word(&menuDigits[digit]);
+  
+  for (uint8_t i = 0; i < count; i++) {
+    uint8_t x = pgm_read_byte(&coords[i * 2]);
+    uint8_t y = pgm_read_byte(&coords[i * 2 + 1]);
+    ht1632_plot(x, y, COLOR_OFF);
+  }
+}
+
+// Affichage complet du menu
+void drawFullMenu() {
+  ht1632_clear();
+  drawMenuText();
+  if (menuState.boxVisible) {
+    drawMenuBox();
+    drawMenuDigit(menuState.selectedLevel);
+  }
+}
+
+// Gestion du clignotement de validation
+void updateMenuValidation() {
+  if (!menuState.validationMode) return;
+  
+  uint32_t currentTime = millis();
+  
+  // Clignoter pendant 1 seconde puis changer d'état
+  if (currentTime - menuState.validationStart > 1000) {
+    changeGameState(GAME_STATE_LEVEL);
+    menuState.validationMode = false;
+    return;
+  }
+  
+  // Clignotement de la boîte
+  if (currentTime - menuState.lastBlinkTime > MENU_BOX_BLINK_INTERVAL) {
+    menuState.boxVisible = !menuState.boxVisible;
+    
+    if (menuState.boxVisible) {
+      drawMenuBox();
+      drawMenuDigit(menuState.selectedLevel);
+    } else {
+      eraseMenuBox();
+      eraseMenuDigit(menuState.selectedLevel);
+    }
+    
+    menuState.lastBlinkTime = currentTime;
+  }
 }
