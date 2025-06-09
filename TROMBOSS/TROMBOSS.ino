@@ -5,6 +5,12 @@
 #include "definitions.h"
 // je suis michel
 
+// Variable globale pour signaler la réinitialisation du bouton après changement d'état
+bool needButtonReset = false;
+
+// Variable globale pour forcer la réinitialisation du menu
+bool forceMenuReinit = false;
+
 //======== SETUP ========
 void setup() {
   // Réactiver Serial pour le débogage
@@ -109,14 +115,23 @@ void periodicFunction() {
   // Note: L'affichage 7 segments est maintenant géré dans loop() pour éviter le blocage I2C dans l'interruption
 
   // ===== CONTRÔLES COMMUNS À TOUS LES ÉTATS =====
-  
-  // Lecture du bouton (4 fois par seconde = tous les 10 cycles)
+    // Lecture du bouton (4 fois par seconde = tous les 10 cycles)
   if (periodicCounter % 10 == 0) {
     static bool lastButtonState = HIGH;
     bool buttonState = digitalRead(BUTTON_PIN);
     
+    // CORRECTION : Gérer la réinitialisation du bouton après changement d'état
+    if (needButtonReset) {
+      lastButtonState = buttonState; // Synchroniser avec l'état actuel
+      needButtonReset = false;
+#if DEBUG_SERIAL
+      Serial.println("État bouton réinitialisé pour éviter validation instantanée");
+#endif
+      return; // Ignorer ce cycle pour éviter la détection de changement
+    }
+    
     // Gestion du bouton avec anti-rebond logiciel
-    if (buttonState != lastButtonState) {      if (buttonState == LOW) {
+    if (buttonState != lastButtonState) {if (buttonState == LOW) {
         // Bouton pressé
         if (gameState.etat == GAME_STATE_MENU) {
           // Dans le menu, démarrer le mode validation avec clignotement
@@ -389,8 +404,11 @@ void display7Seg(uint8_t address, uint8_t digit) {
 void displayScore(uint8_t transformedScore) {
     // Si score = 100%, afficher 10 (1 sur A3, 0 sur A4)
     if (transformedScore >= 100) {
-        display7Seg(A4_ADDR, 9);           // A4 
-        display7Seg(A3_ADDR, 9);           // A3 
+        display7Seg(A3_ADDR, 9);           
+        Wire.beginTransmission(A4_ADDR); 
+        Wire.write(0x09);
+        Wire.write(0b10111111); 
+        Wire.endTransmission();        
     } else {
         // Affichage normal pour score < 100%
         uint8_t unite = transformedScore % 10;
@@ -1147,11 +1165,11 @@ void initGameState() {
 void handleMenuState() {
   static bool menuInitialized = false;
   static uint8_t lastGameState = 255; // Pour détecter le changement d'état
-  
-  // Détecter si on vient de changer d'état
-  if (lastGameState != gameState.etat) {
+    // Détecter si on vient de changer d'état ou si une réinitialisation est forcée
+  if (lastGameState != gameState.etat || forceMenuReinit) {
     menuInitialized = false; // Forcer la réinitialisation
     lastGameState = gameState.etat;
+    forceMenuReinit = false; // Réinitialiser le flag
     
     // CORRECTION CRITIQUE: Double nettoyage pour éliminer la contamination de la mémoire shadow
     ht1632_clear();
@@ -1352,10 +1370,9 @@ void handleLoseState() {
       }
     }
   }
-  
-  if (!loseInitialized) {
-    ht1632_clear();
-    // TODO: Affichage de défaite
+    if (!loseInitialized) {
+    // Afficher l'écran LOSER
+    drawLoserScreen();
     
 #if DEBUG_SERIAL
     Serial.println("=== DÉFAITE ===");
@@ -1366,17 +1383,32 @@ void handleLoseState() {
     Serial.print(" (");
     Serial.print(gameScore.transformed);
     Serial.println("%)");
+    Serial.println("Appuyez sur le bouton pour retourner au menu");
 #endif
     
     loseDisplayTime = millis();
     loseInitialized = true;
   }
   
-  // Retourner au menu après 3 secondes
-  if (millis() - loseDisplayTime > 3000) {
+  // Retourner au menu si le bouton est pressé (après une petite tempo pour éviter les rebonds)
+  static bool buttonWasPressed = false;
+  bool buttonPressed = digitalRead(BUTTON_PIN) == LOW;
+    if (buttonPressed && !buttonWasPressed && millis() - loseDisplayTime > 500) {
+    // Bouton pressé et tempo de sécurité écoulée
+    
+    // CORRECTION : Nettoyer l'écran LOSER avant de changer d'état
+    eraseLoserScreen();
+    
+#if DEBUG_SERIAL
+    Serial.println("Transition LOSE -> MENU : écran nettoyé");
+#endif
+    
     changeGameState(GAME_STATE_MENU);
     loseInitialized = false;
+    buttonWasPressed = false;
   }
+  
+  buttonWasPressed = buttonPressed;
 }
 
 // Fonction pour changer l'état du jeu
@@ -1390,13 +1422,19 @@ void changeGameState(uint8_t newState) {
     last7SegScore = 255;
     last7SegLevel = 255;
     menu7SegInitialized = false;
-    
-    // Réinitialiser l'état du menu si on quitte le menu
+      // Réinitialiser l'état du menu si on quitte le menu
     if (newState != GAME_STATE_MENU) {
       menuState.validationMode = false;
       menuState.boxVisible = true;
+    } else {
+      // CORRECTION : Forcer la réinitialisation du menu quand on y retourne
+      forceMenuReinit = true;
     }
     
+    // CORRECTION : Signaler qu'il faut réinitialiser l'état du bouton
+    // pour éviter la validation instantanée du menu
+    needButtonReset = true;
+
 #if DEBUG_SERIAL
     Serial.print("État: ");
     switch (newState) {
@@ -1405,6 +1443,7 @@ void changeGameState(uint8_t newState) {
       case GAME_STATE_WIN: Serial.println("WIN"); break;
       case GAME_STATE_LOSE: Serial.println("LOSE"); break;
     }
+    Serial.println("Réinitialisation bouton programmée");
 #endif
   }
 }
@@ -1825,4 +1864,40 @@ void updateMenuValidation() {
     
     menuState.lastBlinkTime = currentTime;
   }
+}
+
+// ===== FONCTIONS AFFICHAGE LOSER =====
+
+// Dessiner l'écran LOSER complet
+void drawLoserScreen() {
+  ht1632_clear();
+  
+#if DEBUG_SERIAL
+  Serial.print("Affichage LOSER - Nombre de pixels: ");
+  Serial.println(loserCoordsCount);
+#endif
+  
+  // Afficher tous les pixels LOSER en rouge
+  for (uint16_t i = 0; i < loserCoordsCount; i++) {
+    uint8_t x = pgm_read_byte(&loserCoords[i * 2]);
+    uint8_t y = pgm_read_byte(&loserCoords[i * 2 + 1]);
+    ht1632_plot(x, y, COLOR_RED);
+  }
+  
+#if DEBUG_SERIAL
+  Serial.println("Écran LOSER affiché");
+#endif
+}
+
+// Effacer l'écran LOSER
+void eraseLoserScreen() {
+  for (uint16_t i = 0; i < loserCoordsCount; i++) {
+    uint8_t x = pgm_read_byte(&loserCoords[i * 2]);
+    uint8_t y = pgm_read_byte(&loserCoords[i * 2 + 1]);
+    ht1632_plot(x, y, COLOR_OFF);
+  }
+  
+#if DEBUG_SERIAL
+  Serial.println("Écran LOSER effacé");
+#endif
 }
