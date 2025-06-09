@@ -1264,8 +1264,7 @@ void handleLevelState() {
   // Logique de jeu existante (sera exécutée dans la fonction périodique)
     // Appeler la logique de jeu principale
   handleLevelLoop();
-  
-  // Conditions de fin de niveau
+    // Conditions de fin de niveau
   if (songFinished) {
     bool allBlocksInactive = true;
     for (uint8_t i = 0; i < MAX_BLOCKS; i++) {
@@ -1274,14 +1273,21 @@ void handleLevelState() {
         break;
       }
     }
-      if (allBlocksInactive) {
-      // Niveau terminé - évaluer le score transformé
-      if (gameScore.transformed >= 80) {
-        changeGameState(GAME_STATE_WIN);
-      } else {
-        changeGameState(GAME_STATE_LOSE);
+    
+    if (allBlocksInactive) {
+      // Vérifier que le bouton n'est pas pressé pour éviter le skip automatique
+      bool buttonPressed = digitalRead(BUTTON_PIN) == LOW;
+      if (!buttonPressed) {
+        // Niveau terminé - évaluer le score transformé
+        if (gameScore.transformed >= 80) {
+          changeGameState(GAME_STATE_WIN);
+        } else {
+          changeGameState(GAME_STATE_LOSE);
+        }
+        levelInitialized = false;
       }
-      levelInitialized = false;    }
+      // Si le bouton est pressé, attendre qu'il soit relâché avant de changer d'état
+    }
   }
   
   // Note: Les conditions de défaite seront définies plus tard selon les besoins du jeu
@@ -1321,34 +1327,36 @@ void handleWinState() {
     Serial.print(gameScore.maxPossible);
     Serial.print(" (");
     Serial.print(gameScore.transformed);
-    Serial.println("%)");
-    Serial.print("Temps: ");
+    Serial.println("%)");    Serial.print("Temps: ");
     Serial.print(gameState.timeElapsed / 1000);
     Serial.println("s");
+    Serial.println("Appuyez sur le bouton pour retourner au menu");
 #endif
-    
-    winDisplayTime = millis();
+      winDisplayTime = millis();
     winInitialized = true;
   }
-    // Retourner au menu après 3 secondes
-  if (millis() - winDisplayTime > 3000) {
+  
+  // Gestion de l'interaction avec le bouton (comme pour la phase LOSE)
+  static bool buttonWasPressed = false;
+  bool buttonPressed = digitalRead(BUTTON_PIN) == LOW;
+  
+  if (buttonPressed && !buttonWasPressed && millis() - winDisplayTime > 500) {
+    // Bouton pressé et tempo de sécurité écoulée
+    
     // CORRECTION : Nettoyer l'écran WINNER avant de changer d'état
     eraseWinnerScreen();
     
 #if DEBUG_SERIAL
-    Serial.println("Transition WIN : écran nettoyé");
+    Serial.println("Transition WIN -> MENU : écran nettoyé");
 #endif
     
-    if (gameState.level < 9) {
-      // Passer au niveau suivant
-      gameState.level++;
-      changeGameState(GAME_STATE_LEVEL);
-    } else {
-      // Retourner au menu (jeu terminé)
-      changeGameState(GAME_STATE_MENU);
-    }
+    // Toujours retourner au menu (comme demandé)
+    changeGameState(GAME_STATE_MENU);
     winInitialized = false;
+    buttonWasPressed = false;
   }
+  
+  buttonWasPressed = buttonPressed;
 }
 
 // Gestion de l'état de défaite
@@ -1518,13 +1526,13 @@ void updateTransformedScore() {
 // ===== FONCTIONS DE DÉTECTION DE COLLISION =====
 
 // Calculer quels pixels du bloc sont touchés par le curseur
-uint8_t getBlockPixelsHitByCursor(uint8_t blockIndex) {
+uint32_t getBlockPixelsHitByCursor(uint8_t blockIndex) {
   if (!blocks[blockIndex].active) {
     return 0;
   }
   
   Block& block = blocks[blockIndex];
-  uint8_t pixelsHit = 0;
+  uint32_t pixelsHit = 0;
   
   // Position du curseur (2x2 pixels sur colonnes 2-3)
   uint8_t cursorX1 = 2;
@@ -1550,14 +1558,14 @@ uint8_t getBlockPixelsHitByCursor(uint8_t blockIndex) {
   
   // Calculer les pixels individuels touchés
   // Chaque bloc fait 2 pixels de haut et "length" pixels de large
-  // On encode les pixels touchés dans un masque de bits
+  // On encode les pixels touchés dans un masque de bits 32 bits
   for (uint8_t pixelY = 0; pixelY < BLOCK_HEIGHT; pixelY++) {
     uint8_t absoluteY = block.y + pixelY;
     
     // Ce pixel Y intersecte-t-il avec le curseur ?
     if (absoluteY >= cursorY1 && absoluteY <= cursorY2) {
-      // Vérifier chaque pixel X du bloc
-      for (uint8_t pixelX = 0; pixelX < block.length && pixelX < 16; pixelX++) { // Limite à 16 pour le masque
+      // Vérifier chaque pixel X du bloc (suppression de la limite artificielle)
+      for (uint8_t pixelX = 0; pixelX < block.length && pixelX < 32; pixelX++) { // Limite à 32 pour le masque
         int16_t absoluteX = block.x + pixelX;
         
         // Ce pixel X intersecte-t-il avec le curseur (colonnes 2-3) ?
@@ -1565,9 +1573,9 @@ uint8_t getBlockPixelsHitByCursor(uint8_t blockIndex) {
           // Calculer l'index du pixel dans le masque (row-major order)
           uint8_t pixelIndex = pixelY * block.length + pixelX;
           
-          // Vérifier que l'index ne dépasse pas 15 (masque 16 bits)
-          if (pixelIndex < 16) {
-            pixelsHit |= (1 << pixelIndex);
+          // Vérifier que l'index ne dépasse pas 31 (masque 32 bits)
+          if (pixelIndex < 32) {
+            pixelsHit |= (1UL << pixelIndex);
           }
         }
       }
@@ -1581,7 +1589,7 @@ uint8_t getBlockPixelsHitByCursor(uint8_t blockIndex) {
     Serial.print(" - Pix: ");
     Serial.print(pixelsHit, BIN);
     Serial.print(" (");
-    Serial.print(__builtin_popcount(pixelsHit));
+    Serial.print(__builtin_popcountl(pixelsHit));
     Serial.println(" pixels)");
   }
 #endif
@@ -1603,21 +1611,21 @@ void checkCursorCollision() {
     }
     
     // Calculer quels pixels du bloc sont touchés par le curseur
-    uint8_t pixelsHit = getBlockPixelsHitByCursor(i);
+    uint32_t pixelsHit = getBlockPixelsHitByCursor(i);
     
     if (pixelsHit == 0) {
       continue; // Pas de collision pour ce bloc
     }
     
     // Calculer quels sont les nouveaux pixels (pas encore touchés)
-    uint8_t newPixelsHit = pixelsHit & (~blocks[i].hitPixels);
+    uint32_t newPixelsHit = pixelsHit & (~blocks[i].hitPixels);
     
     if (newPixelsHit == 0) {
       continue; // Tous ces pixels ont déjà été comptés
     }
     
     // Compter le nombre de nouveaux pixels touchés
-    uint8_t newPixelCount = __builtin_popcount(newPixelsHit);
+    uint8_t newPixelCount = __builtin_popcountl(newPixelsHit);
     
     // Marquer ces pixels comme touchés
     blocks[i].hitPixels |= newPixelsHit;

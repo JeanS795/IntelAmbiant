@@ -80,7 +80,7 @@ typedef struct {
   uint16_t frequency;     // Fréquence de la note associée
   uint8_t needsUpdate : 1; // Flag pour indiquer si le bloc doit être mis à jour
   int16_t oldX;           // Ancienne position X pour effacer
-  uint16_t hitPixels;     // Masque de bits pour les pixels déjà touchés (max 16 pixels)
+  uint32_t hitPixels;     // Masque de bits pour les pixels déjà touchés (max 32 pixels)
 } Block;
 
 // ===== STRUCTURE CURSEUR =====
@@ -259,7 +259,7 @@ void updateTransformedScore();
 // Vérifier si le curseur touche un bloc et marquer les points
 void checkCursorCollision();
 // Calculer quels pixels du bloc sont touchés par le curseur
-uint8_t getBlockPixelsHitByCursor(uint8_t blockIndex);
+uint32_t getBlockPixelsHitByCursor(uint8_t blockIndex);
 
 // ===== FONCTIONS SYSTÈME =====
 // Fonction principale setup
