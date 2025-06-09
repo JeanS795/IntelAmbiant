@@ -70,6 +70,17 @@
 #define BLOCK_MOVE_CYCLES_LEVEL_8 10
 #define BLOCK_MOVE_CYCLES_LEVEL_9 8
 
+// Nombre de cycles entre chaque création de nouvelle note selon le niveau
+#define NOTE_CREATION_CYCLES_LEVEL_1 60  // 1.5 secondes - très lent
+#define NOTE_CREATION_CYCLES_LEVEL_2 50  // 1.25 secondes - lent  
+#define NOTE_CREATION_CYCLES_LEVEL_3 42  // 1.05 secondes - moyen-lent
+#define NOTE_CREATION_CYCLES_LEVEL_4 36  // 0.9 secondes - moyen
+#define NOTE_CREATION_CYCLES_LEVEL_5 30  // 0.75 secondes - moyen-rapide
+#define NOTE_CREATION_CYCLES_LEVEL_6 25  // 0.625 secondes - rapide
+#define NOTE_CREATION_CYCLES_LEVEL_7 20  // 0.5 secondes - très rapide
+#define NOTE_CREATION_CYCLES_LEVEL_8 16  // 0.4 secondes - ultra-rapide
+#define NOTE_CREATION_CYCLES_LEVEL_9 12  // 0.3 secondes - extrême
+
 // ===== STRUCTURE BLOC =====
 typedef struct {
   int16_t x;              // Position horizontale
@@ -157,6 +168,7 @@ uint8_t lastNotePosition = 255;
 // Variables pour le système de niveaux
 uint8_t currentDifficultyLevel = DEFAULT_DIFFICULTY_LEVEL;
 uint8_t blockMoveCycles = BLOCK_MOVE_CYCLES_LEVEL_6;
+uint8_t noteCreationCycles = NOTE_CREATION_CYCLES_LEVEL_1;
 
 // ===== CONSTANTES MENU =====
 #define MENU_LEVEL_MIN 1

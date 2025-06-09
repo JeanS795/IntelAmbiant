@@ -339,10 +339,8 @@ void periodicFunction() {
             displayNeedsUpdate = true; // Indiquer que l'affichage doit être mis à jour
           }
         }
-      }
-
-      // Création de nouvelles notes (1 fois par seconde = tous les 40 cycles)
-      if (periodicCounter % 40 == 0) {
+      }      // Création de nouvelles notes - fréquence selon le niveau de difficulté
+      if (periodicCounter % noteCreationCycles == 0) {
         if (!songFinished) {
           static bool noteCreationInProgress = false;
           
@@ -558,17 +556,36 @@ uint8_t getDifficultyBlockMoveCycles(uint8_t level) {
   }
 }
 
+// Fonction pour obtenir le nombre de cycles de création de notes selon le niveau de difficulté
+uint8_t getDifficultyNoteCreationCycles(uint8_t level) {
+  switch (level) {
+    case 1: return NOTE_CREATION_CYCLES_LEVEL_1;
+    case 2: return NOTE_CREATION_CYCLES_LEVEL_2;
+    case 3: return NOTE_CREATION_CYCLES_LEVEL_3;
+    case 4: return NOTE_CREATION_CYCLES_LEVEL_4;
+    case 5: return NOTE_CREATION_CYCLES_LEVEL_5;
+    case 6: return NOTE_CREATION_CYCLES_LEVEL_6;
+    case 7: return NOTE_CREATION_CYCLES_LEVEL_7;
+    case 8: return NOTE_CREATION_CYCLES_LEVEL_8;
+    case 9: return NOTE_CREATION_CYCLES_LEVEL_9;
+    default: return NOTE_CREATION_CYCLES_LEVEL_1; // Par défaut niveau 1
+  }
+}
+
 // Fonction pour définir le niveau de difficulté
 void setDifficultyLevel(uint8_t level) {
   if (level >= MIN_DIFFICULTY_LEVEL && level <= MAX_DIFFICULTY_LEVEL) {
     currentDifficultyLevel = level;
     blockMoveCycles = getDifficultyBlockMoveCycles(level);
+    noteCreationCycles = getDifficultyNoteCreationCycles(level);
     
 #if DEBUG_SERIAL
     Serial.print("Lvl:");
     Serial.print(level);
-    Serial.print(" Cyc:");
-    Serial.println(blockMoveCycles);
+    Serial.print(" BlcCyc:");
+    Serial.print(blockMoveCycles);
+    Serial.print(" NoteCyc:");
+    Serial.println(noteCreationCycles);
 #endif
   }
 }
@@ -712,8 +729,9 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
 #endif
     return;
   }
-    // Calcul de la longueur en fonction de la durée
+  // Calcul de la longueur en fonction de la durée
   // Convertir les durées musicales (1-32) en longueurs visuelles (1-8 pixels)
+  // Amélioration : meilleure répartition pour les nouveaux patterns rythmiques
   uint8_t length;
   if (note.duration >= 32) length = 8;        // Niveau 1: 32 -> 8 pixels
   else if (note.duration >= 24) length = 6;   // Niveau 2: 24 -> 6 pixels
@@ -722,7 +740,8 @@ void createNewBlock(const MusicNote* noteArray, uint8_t noteIndex) {
   else if (note.duration >= 8) length = 3;    // Niveau 5: 8 -> 3 pixels
   else if (note.duration >= 6) length = 3;    // Niveau 6: 6 -> 3 pixels
   else if (note.duration >= 4) length = 2;    // Niveau 7: 4 -> 2 pixels
-  else if (note.duration >= 2) length = 2;    // Niveau 8: 2 -> 2 pixels
+  else if (note.duration >= 3) length = 2;    // Niveau 8/9: 3 -> 2 pixels (AJOUT)
+  else if (note.duration >= 2) length = 1;    // Niveau 8/9: 2 -> 1 pixel (MODIFIÉ)
   else length = 1;                             // Niveau 9: 1 -> 1 pixel
   
   if (length < 1) length = 1;     // Longueur minimale de 1
