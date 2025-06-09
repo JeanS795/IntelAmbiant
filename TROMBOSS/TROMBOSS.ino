@@ -125,7 +125,7 @@ void periodicFunction() {
       lastButtonState = buttonState; // Synchroniser avec l'état actuel
       needButtonReset = false;
 #if DEBUG_SERIAL
-      Serial.println("État bouton réinitialisé pour éviter validation instantanée");
+      Serial.println("Btn reset");
 #endif
       return; // Ignorer ce cycle pour éviter la détection de changement
     }
@@ -142,7 +142,7 @@ void periodicFunction() {
             menuState.boxVisible = false; // Commencer par invisible pour créer l'effet
             
 #if DEBUG_SERIAL
-            Serial.print("Validation niveau ");
+            Serial.print("Val:");
             Serial.println(menuState.selectedLevel);
 #endif
           }
@@ -224,9 +224,9 @@ void periodicFunction() {
           // Dessiner le nouveau chiffre
           drawMenuDigit(menuState.selectedLevel);        
 #if DEBUG_SERIAL
-          Serial.print("PotValue: ");
+          Serial.print("Pot:");
           Serial.print(potValue);
-          Serial.print(" -> Niveau sélectionné: ");
+          Serial.print(" L:");
           Serial.println(menuState.selectedLevel);
 #endif
         }
@@ -427,7 +427,7 @@ void displayLevel(uint8_t level) {
 
 // Fonction pour afficher "MENU" sur les 4 afficheurs pendant le menu
 void displayMENU() {
-    Serial.println("Début de displayMENU()");
+    Serial.println("displayMENU()");
     
     // Codes personnalisés pour MENU (de gauche à droite : A1, A2, A3, A4) dernier bit = virgule
     uint8_t codeM = 0b01101110; // M sur A1
@@ -435,7 +435,7 @@ void displayMENU() {
     uint8_t codeN = 0b11000100; // N sur A3
     uint8_t codeU = 0b01110110; // U sur A4
     
-    Serial.println("Envoi des codes aux afficheurs...");
+    Serial.println("Envoi codes...");
     
     Wire.beginTransmission(A1_ADDR); // A1
     Wire.write(0x09);
@@ -454,11 +454,10 @@ void displayMENU() {
 
     
     Wire.beginTransmission(A4_ADDR); // A4
-    Wire.write(0x09);
-    Wire.write(codeU); // U
+    Wire.write(0x09);    Wire.write(codeU); // U
     Wire.endTransmission();
     
-    Serial.println("Fin de displayMENU()");
+    Serial.println("displayMENU() OK");
 }
 
 // Fonction pour éteindre tous les afficheurs 7 segments
@@ -480,8 +479,7 @@ void update7SegDisplay(uint8_t gameState, uint8_t transformedScore, uint8_t leve
     if (gameState != last7SegGameState) {
         needsUpdate = true;
         last7SegGameState = gameState;
-        
-        // Réinitialiser les flags pour forcer la mise à jour des autres valeurs
+          // Réinitialiser les flags pour forcer la mise à jour des autres valeurs
         if (gameState == GAME_STATE_MENU) {
             menu7SegInitialized = false;
         }
@@ -493,7 +491,7 @@ void update7SegDisplay(uint8_t gameState, uint8_t transformedScore, uint8_t leve
         case 0: // GAME_STATE_MENU
             // Initialiser le menu seulement une fois
             if (!menu7SegInitialized) {
-                Serial.println("Affichage MENU - init unique");
+                Serial.println("MENU init");
                 displayMENU();
                 menu7SegInitialized = true;
             }
@@ -505,7 +503,7 @@ void update7SegDisplay(uint8_t gameState, uint8_t transformedScore, uint8_t leve
                 displayScore(transformedScore);
                 last7SegScore = transformedScore;
 #if DEBUG_SERIAL
-                Serial.print("7Seg Score mis à jour: ");
+                Serial.print("S:");
                 Serial.print(transformedScore);
                 Serial.println("%");
 #endif
@@ -514,7 +512,7 @@ void update7SegDisplay(uint8_t gameState, uint8_t transformedScore, uint8_t leve
                 displayLevel(level);
                 last7SegLevel = level;
 #if DEBUG_SERIAL
-                Serial.print("7Seg Level mis à jour: ");
+                Serial.print("L:");
                 Serial.println(level);
 #endif
             }
@@ -1194,8 +1192,8 @@ void handleMenuState() {
     drawFullMenu();
     
 #if DEBUG_SERIAL
-    Serial.println("=== MENU ===");
-    Serial.println("Potentiomètre: niveau, Bouton: start");
+    Serial.println("MENU");
+    Serial.println("Pot:lvl Btn:start");
 #endif
     menuInitialized = true;
   }
@@ -1317,17 +1315,17 @@ void handleWinState() {
     // TODO: Affichage de victoire
     
 #if DEBUG_SERIAL
-    Serial.println("=== VICTOIRE ===");
-    Serial.print("Score: ");
+    Serial.println("WIN");
+    Serial.print("S:");
     Serial.print(gameScore.current);
     Serial.print("/");
     Serial.print(gameScore.maxPossible);
     Serial.print(" (");
     Serial.print(gameScore.transformed);
     Serial.println("%)");
-    Serial.print("T: ");
+    Serial.print("T:");
     Serial.print(gameState.timeElapsed / 1000);
-    Serial.println(" sec");
+    Serial.println("s");
 #endif
     
     winDisplayTime = millis();
@@ -1463,33 +1461,31 @@ void initScore() {
 
 // Ajouter des points au score actuel
 void addScore(uint16_t points) {
-  gameScore.current += points;
-  updateTransformedScore();
+  gameScore.current += points;  updateTransformedScore();
   
 #if DEBUG_SERIAL
-  Serial.print("Score +");
+  Serial.print("S+");
   Serial.print(points);
-  Serial.print(" = ");
+  Serial.print("=");
   Serial.print(gameScore.current);
   Serial.print("/");
   Serial.print(gameScore.maxPossible);
-  Serial.print(" (");
+  Serial.print("(");
   Serial.print(gameScore.transformed);
   Serial.println("%)");
 #endif
 }
 
 // Ajouter des points au score maximum possible
-void addMaxScore(uint16_t points) {
-  gameScore.maxPossible += points;
+void addMaxScore(uint16_t points) {  gameScore.maxPossible += points;
   updateTransformedScore();
   
 #if DEBUG_SERIAL
-  Serial.print("Smax +");
+  Serial.print("Mx+");
   Serial.print(points);
-  Serial.print(" = ");
+  Serial.print("=");
   Serial.print(gameScore.maxPossible);
-  Serial.print(" (tr: ");
+  Serial.print("(tr:");
   Serial.print(gameScore.transformed);
   Serial.println("%)");
 #endif
@@ -1873,31 +1869,35 @@ void drawLoserScreen() {
   ht1632_clear();
   
 #if DEBUG_SERIAL
-  Serial.print("Affichage LOSER - Nombre de pixels: ");
-  Serial.println(loserCoordsCount);
+  Serial.print("LOSER: ");
+  Serial.println(loserEmptyCoordsCount);
 #endif
   
-  // Afficher tous les pixels LOSER en rouge
-  for (uint16_t i = 0; i < loserCoordsCount; i++) {
-    uint8_t x = pgm_read_byte(&loserCoords[i * 2]);
-    uint8_t y = pgm_read_byte(&loserCoords[i * 2 + 1]);
-    ht1632_plot(x, y, COLOR_RED);
+  // Remplir tout l'écran en rouge (32x16 = 512 pixels)
+  for (uint8_t y = 0; y < 16; y++) {
+    for (uint8_t x = 0; x < 32; x++) {
+      ht1632_plot(x, y, COLOR_RED);
+    }
+  }
+  
+  // Puis enlever les pixels vides pour former le motif "LOSER"
+  for (uint16_t i = 0; i < loserEmptyCoordsCount; i++) {
+    uint8_t x = pgm_read_byte(&loserEmptyCoords[i * 2]);
+    uint8_t y = pgm_read_byte(&loserEmptyCoords[i * 2 + 1]);
+    ht1632_plot(x, y, COLOR_OFF);
   }
   
 #if DEBUG_SERIAL
-  Serial.println("Écran LOSER affiché");
+  Serial.println("LOSER OK");
 #endif
 }
 
 // Effacer l'écran LOSER
 void eraseLoserScreen() {
-  for (uint16_t i = 0; i < loserCoordsCount; i++) {
-    uint8_t x = pgm_read_byte(&loserCoords[i * 2]);
-    uint8_t y = pgm_read_byte(&loserCoords[i * 2 + 1]);
-    ht1632_plot(x, y, COLOR_OFF);
-  }
+  // Simple effacement de tout l'écran
+  ht1632_clear();
   
 #if DEBUG_SERIAL
-  Serial.println("Écran LOSER effacé");
+  Serial.println("LOSER OFF");
 #endif
 }
