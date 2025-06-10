@@ -24,7 +24,6 @@
 #define COLOR_ORANGE 3
 
 #define BLOCK_COLOR COLOR_ORANGE
-#define BORDER_COLOR COLOR_ORANGE
 #define CURSOR_COLOR COLOR_RED
 #define GREEN_COLUMN_COLOR COLOR_GREEN
 
@@ -57,7 +56,6 @@
 // ===== CONSTANTES NIVEAUX DE DIFFICULTE =====
 #define MIN_DIFFICULTY_LEVEL 1
 #define MAX_DIFFICULTY_LEVEL 9
-#define DEFAULT_DIFFICULTY_LEVEL 1
 
 // Nombre de cycles entre chaque déplacement de bloc selon le niveau
 #define BLOCK_MOVE_CYCLES_LEVEL_1 40
@@ -123,6 +121,15 @@ typedef struct {
   bool pauseGame;         // Flag de pause
 } GameState;
 
+// ===== STRUCTURES MENU =====
+typedef struct {
+  uint8_t selectedLevel;     // Niveau sélectionné (1-9)
+  bool boxVisible;           // Visibilité de la boîte (pour clignotement)
+  uint32_t lastBlinkTime;    // Dernier temps de clignotement
+  bool validationMode;       // Mode validation (clignotement avant passage au jeu)
+  uint32_t validationStart;  // Début de la validation
+} MenuState;
+
 // ===== ADRESSES DES AFFICHEURS 7 SEGMENTS =====
 // Organisation des afficheurs :
 // A1 (niveau) = 0x23
@@ -175,14 +182,7 @@ uint8_t noteCreationCycles = NOTE_CREATION_CYCLES_LEVEL_1;
 #define MENU_LEVEL_MAX 9
 #define MENU_BOX_BLINK_INTERVAL 300  // ms pour le clignotement de validation
 
-// ===== STRUCTURES MENU =====
-typedef struct {
-  uint8_t selectedLevel;     // Niveau sélectionné (1-9)
-  bool boxVisible;           // Visibilité de la boîte (pour clignotement)
-  uint32_t lastBlinkTime;    // Dernier temps de clignotement
-  bool validationMode;       // Mode validation (clignotement avant passage au jeu)
-  uint32_t validationStart;  // Début de la validation
-} MenuState;
+
 
 // ===== VARIABLES GLOBALES MENU =====
 MenuState menuState;
